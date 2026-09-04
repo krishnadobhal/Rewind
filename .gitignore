@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+docs/
+AGENTS.md
+CLAUDE.md
+CONTRIBUTING.md
+PROJECT.md
+README.md

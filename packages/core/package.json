@@ -1,0 +1,16 @@
+{
+  "name": "@rewind/core",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./schema": "./dist/schema.js",
+    "./request": "./dist/request.js",
+    "./hash": "./dist/hash.js"
+  },
+  "dependencies": {
+    "canonicalize": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
+  }
+}

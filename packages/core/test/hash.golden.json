@@ -1,0 +1,218 @@
+{
+  "hash_version": 3,
+  "cases": [
+    {
+      "name": "model-minimal",
+      "request": {
+        "kind": "model",
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-4-6",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hello"
+          }
+        ]
+      },
+      "hash": "5cda0ff589f1b95be5317838dc8b1a9e04fb31cb9c9028581d8f27388247316c"
+    },
+    {
+      "name": "model-sampling-identity",
+      "request": {
+        "kind": "model",
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-4-6",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hello"
+          }
+        ],
+        "temperature": 0,
+        "top_p": 1,
+        "max_tokens": 1024,
+        "tool_choice": "auto",
+        "system_prompt_sha": "sha256:abc"
+      },
+      "hash": "c88de7d5acff84f066f0aa4c0ff2620a37a59a759d9532bc420fd244867301d7"
+    },
+    {
+      "name": "model-tool-schemas",
+      "request": {
+        "kind": "model",
+        "provider": "openai",
+        "model_id": "gpt-5",
+        "messages": [
+          {
+            "role": "user",
+            "content": "search for cats"
+          }
+        ],
+        "tool_schemas": [
+          {
+            "name": "web_search",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "q": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "name": "finish",
+            "parameters": {
+              "type": "object",
+              "properties": {}
+            }
+          }
+        ]
+      },
+      "hash": "4c61333d042a5ff433dfeb7ccf0639389cf7196bbd1471990d29347d5147e95a"
+    },
+    {
+      "name": "model-fenced-code-preserved",
+      "request": {
+        "kind": "model",
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-4-6",
+        "messages": [
+          {
+            "role": "user",
+            "content": "fix this\n\n```py\ndef f():\n    return 1\n```\n\nplease"
+          }
+        ]
+      },
+      "hash": "22e1d5544b45c693c25dd7096d1ceb6d6a686594c4c28124fd7ed05670fa6ace"
+    },
+    {
+      "name": "model-unicode",
+      "request": {
+        "kind": "model",
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-4-6",
+        "messages": [
+          {
+            "role": "user",
+            "content": "café — naïve résumé"
+          }
+        ]
+      },
+      "hash": "914b666692e8f758c6311992790a6800b96190b27086480a5cd4efc33c66f98e"
+    },
+    {
+      "name": "model-tool-call-ids-scrubbed",
+      "request": {
+        "kind": "model",
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-4-6",
+        "messages": [
+          {
+            "role": "user",
+            "content": "weather?"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "toolu_01ABC",
+                "name": "get_weather",
+                "args": {
+                  "city": "SF"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "toolu_01ABC",
+            "content": "18C"
+          }
+        ]
+      },
+      "hash": "734244e0db49b79da1d9a72b072b780cca04a297a135f4561e97334148df64fd"
+    },
+    {
+      "name": "model-empty-values-preserved",
+      "request": {
+        "kind": "model",
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-4-6",
+        "messages": [
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": []
+          }
+        ]
+      },
+      "hash": "781b384cb47259ec7f95afbb11bef000dcbe21f9aa0c194d85168ae41ce887f3"
+    },
+    {
+      "name": "model-numbers-are-values",
+      "request": {
+        "kind": "model",
+        "provider": "openai",
+        "model_id": "gpt-5",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "temperature": 1,
+        "top_k": 40,
+        "seed": 42
+      },
+      "hash": "4af9afed4d74189d73d70c94cffbf4a50ad145dac4f2d10b30492926e219dffa"
+    },
+    {
+      "name": "tool-simple",
+      "request": {
+        "kind": "tool",
+        "tool_name": "web_search",
+        "args": {
+          "query": "langgraph replay",
+          "limit": 10
+        }
+      },
+      "hash": "e1d4d955c5097ca717c627f4fe2c1e2bf48a53bac0d8a28edef67f61b800a85d"
+    },
+    {
+      "name": "tool-nested-args",
+      "request": {
+        "kind": "tool",
+        "tool_name": "db_query",
+        "args": {
+          "sql": "select 1",
+          "opts": {
+            "timeout": 30,
+            "tags": [
+              "a",
+              "b"
+            ]
+          }
+        }
+      },
+      "hash": "08be540693ec85c8a493d6e145675b359a3b95df5c54019d3776eb7e4b3776e7"
+    },
+    {
+      "name": "clock-counter",
+      "request": {
+        "kind": "clock",
+        "counter": 7
+      },
+      "hash": "7b88a74da03965e24c515e7b86ae4253a23797bca23cdc7bc5c4d30b3c91fbd6"
+    },
+    {
+      "name": "rng-counter",
+      "request": {
+        "kind": "rng",
+        "counter": 0
+      },
+      "hash": "a5c5a01dcd5a6ba8bacb65235f8c87f0f4b39f496629999fa2bc4aa78bd27cc5"
+    }
+  ]
+}

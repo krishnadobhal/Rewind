@@ -1,0 +1,13 @@
+{
+  "name": "rewind",
+  "private": true,
+  "packageManager": "pnpm@11.21.0",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --test \"packages/*/test/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2"
+  }
+}
