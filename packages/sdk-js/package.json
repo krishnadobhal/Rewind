@@ -1,0 +1,16 @@
+{
+  "name": "@rewind/sdk-js",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./recorder": "./dist/recorder.js",
+    "./redact": "./dist/redact.js",
+    "./store": "./dist/store.js"
+  },
+  "dependencies": {
+    "@rewind/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
+  }
+}
