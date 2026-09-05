@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import canonicalize from 'canonicalize';
-import type { RewindRequest } from './request.ts';
+import type { RewindRequest } from './types/request.ts';
 
 export const HASH_VERSION = 3;
 

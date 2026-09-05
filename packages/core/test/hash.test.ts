@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { HASH_VERSION, reqHash } from '../src/hash.ts';
-import type { RewindRequest } from '../src/request.ts';
+import type { RewindRequest } from '../src/types/request.ts';
 
 const FILE = new URL('./hash.golden.json', import.meta.url);
 type Golden = { hash_version: number; cases: { name: string; request: RewindRequest; hash?: string }[] };

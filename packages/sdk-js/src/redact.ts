@@ -1,29 +1,12 @@
 /**
- * Redaction runs here, in the user's process, before an event is written (I4).
- * There is no read-time redaction path and there must never be one — an unredacted
- * byte that reaches the store is already a breach.
- *
- * The `redaction_map` stored with a cassette maps token → matcher name. It never
- * contains the original value; a map that did would re-create the breach it exists
- * to record.
+ * Runs in the user's process, before anything is written. There is no read-time path.
+ * `redaction_map` holds token → matcher name, never the original value.
  */
 
-export type RedactConfig = {
-  /** `default` covers emails, phones, card-shaped digits and bearer tokens. */
-  preset?: 'default' | 'none';
-  custom?: RegExp[];
-  /** Dotted paths whose whole value is replaced, e.g. `headers.authorization`. */
-  fields?: string[];
-};
+import type { RedactConfig, RedactResult } from './types/redact.ts';
 
-export type RedactResult = { value: unknown; map: Record<string, string> };
+export type { RedactConfig, RedactResult } from './types/redact.ts';
 
-/**
- * ponytail: regex matchers, not a PII classifier. Cheap, deterministic, and wrong at
- * the margins — an ML detector is the upgrade path if the redaction suite (M7) finds
- * real leaks these miss. Order matters: cards before phones, or the phone matcher
- * eats card numbers first.
- */
 const PRESET: [name: string, pattern: RegExp][] = [
   ['email', /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g],
   ['token', /\b(?:Bearer\s+[\w.\-~+/]+=*|sk-[A-Za-z0-9_-]{16,}|xox[baprs]-[\w-]{10,})/g],
@@ -58,6 +41,11 @@ function redactString(input: string, matchers: [string, RegExp][], tokens: Token
   return out;
 }
 
+/**
+ * Depth-first over the tree, building a dotted path as it descends. A configured
+ * `fields` path wins outright — the whole value goes, whatever shape it is — before
+ * any pattern gets a chance to run against it.
+ */
 function walk(value: unknown, path: string, ctx: { matchers: [string, RegExp][]; fields: Set<string>; tokens: Tokens }): unknown {
   if (ctx.fields.has(path)) {
     return value === undefined ? value : ctx.tokens.for(`${path}:${JSON.stringify(value)}`, 'field');
@@ -74,6 +62,7 @@ function walk(value: unknown, path: string, ctx: { matchers: [string, RegExp][];
   return value;
 }
 
+/** Assemble the matcher list, then walk once. Returns a new tree; the input is untouched. */
 export function redact(value: unknown, config: RedactConfig = {}): RedactResult {
   const matchers: [string, RegExp][] = config.preset === 'none' ? [] : [...PRESET];
   (config.custom ?? []).forEach((re, i) => matchers.push([`custom:${i}`, re]));

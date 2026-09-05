@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { reqHash, normalizeText } from '../src/hash.ts';
-import type { ModelRequest, RewindRequest } from '../src/request.ts';
+import type { ModelRequest, RewindRequest } from '../src/types/request.ts';
 
 const base: ModelRequest = {
   kind: 'model',

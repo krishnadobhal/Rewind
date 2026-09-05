@@ -19,7 +19,7 @@ export type Run = {
   code_sha: string;
   prompt_sha: string;
   model_cfg: Record<string, unknown>;
-  /** ponytail: bigint in the DDL, number here — generate seeds below 2^53 or this lies. */
+  /** Bigint in the DDL, number here — generate seeds below 2^53 or this lies. */
   seed: number;
   flags_snapshot: Record<string, string>;
   hash_version: number;
@@ -42,7 +42,7 @@ export type Step = {
   req_hash: string;
   /** = req_hash for recorded steps; null for replayed-from-shim. */
   cassette_ref: string | null;
-  /** Never inferred, never omitted, never defaulted (I3). */
+  /** Never inferred, never omitted, never defaulted. */
   match_tier: MatchTier;
   latency_ms: number;
   tokens: number | null;
@@ -60,7 +60,7 @@ export type Cassette = {
   chunks: string | null;
   provider: string | null;
   model_version: string | null;
-  /** Written in the user's process, before the event leaves it (I4). */
+  /** Written in the user's process, before the event leaves it. */
   redaction_map: Record<string, string>;
   refcount: number;
   recorded_at: string;

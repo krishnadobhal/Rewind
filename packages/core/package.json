@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    "./schema": "./dist/schema.js",
-    "./request": "./dist/request.js",
+    "./schema": "./dist/types/schema.js",
+    "./request": "./dist/types/request.js",
     "./hash": "./dist/hash.js"
   },
   "dependencies": {

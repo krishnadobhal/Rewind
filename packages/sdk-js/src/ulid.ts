@@ -8,6 +8,7 @@ const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
  * Lexicographic order is creation order, which is why DATA_MODEL.md picks it over UUIDv4.
  */
 export function ulid(now = Date.now()): string {
+  // Least-significant symbol first, each one prepended, so the result reads big-endian.
   let time = '';
   for (let t = now, i = 0; i < 10; i++, t = Math.floor(t / 32)) time = ALPHABET[t % 32] + time;
   // 256 / 32 is exact, so a uniform byte gives a uniform symbol.
