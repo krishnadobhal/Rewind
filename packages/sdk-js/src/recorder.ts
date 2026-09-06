@@ -24,6 +24,7 @@ export class Recorder {
   #lastLoggedAt = 0;
   #seq = 0;
 
+  /** Opens a run and writes its row immediately. */
   constructor(options: RecorderOptions) {
     this.#store = options.store;
     this.#redact = options.redact ?? {};
@@ -35,7 +36,7 @@ export class Recorder {
       code_sha: '',
       prompt_sha: '',
       model_cfg: {},
-      seed: Math.floor(Math.random() * 2 ** 48),
+      seed: Math.floor(Math.random() * 2 ** 48), // under 2^53, Run.seed is a number
       flags_snapshot: {},
       hash_version: HASH_VERSION,
       started_at: new Date().toISOString(),
@@ -45,10 +46,11 @@ export class Recorder {
       tokens: 0,
       cost_usd: 0,
       latency_ms: 0,
-      ...options.run,
+      ...options.run, // caller overrides any default above
     };
     // Written before the first step, so a process that dies mid-run still leaves an
     // inspectable trace instead of orphaned steps.
+    // Written up front so a crashed run still leaves a row behind.
     this.#guard('putRun', () => this.#store.putRun(this.run));
   }
 
@@ -61,7 +63,8 @@ export class Recorder {
       // Hashed before redaction: a digest of a secret is not the secret, and it keeps
       // req_hash stable when the redaction config changes.
       const hash = reqHash(observation.request);
-      const seq = this.#seq++;
+      const seq = this.#seq++; // claimed before any write can fail
+      // Request and response redact together, so a value in both gets one token.
       const safe = redact({ request: observation.request, response: observation.response }, this.#redact);
       const body = safe.value as { request: unknown; response: unknown };
 
@@ -79,7 +82,7 @@ export class Recorder {
         refcount: 1,
         recorded_at: new Date().toISOString(),
       };
-      this.#store.putCassette(cassette);
+      this.#store.putCassette(cassette); // no-op if this hash exists already
 
       const step: Step = {
         run_id: this.run.run_id,
@@ -97,6 +100,7 @@ export class Recorder {
       };
       this.#store.appendStep(step);
 
+      // Rolled up here so finish() has totals without re-reading the steps.
       this.stats.steps++;
       this.run.tokens += observation.tokens ?? 0;
       this.run.cost_usd += observation.cost_usd ?? 0;
@@ -114,13 +118,14 @@ export class Recorder {
   }
 
   /** The one place a store failure may land: count it, degrade the run, carry on. */
+  /** Runs fn, swallowing and counting any failure (I1). */
   #guard(what: string, fn: () => void): void {
     try {
       fn();
     } catch (error) {
       this.stats.dropped++;
       this.run.status = 'partial';
-      const now = Date.now();
+      const now = Date.now(); // rate-limit the log, not the counter
       if (now - this.#lastLoggedAt >= LOG_INTERVAL_MS) {
         this.#lastLoggedAt = now;
         this.#log(`${what} failed; run ${this.run.run_id} is partial (${this.stats.dropped} dropped)`, error);

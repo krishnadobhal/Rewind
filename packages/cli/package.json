@@ -1,0 +1,13 @@
+{
+  "name": "@rewind/cli",
+  "version": "0.0.0",
+  "type": "module",
+  "bin": { "rewind": "./dist/main.js" },
+  "dependencies": {
+    "@rewind/core": "workspace:*",
+    "@rewind/sdk-js": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
+  }
+}

@@ -15,9 +15,9 @@ const PRESET: [name: string, pattern: RegExp][] = [
 ];
 
 class Tokens {
-  readonly map: Record<string, string> = {};
-  #seen = new Map<string, string>();
-  #counts = new Map<string, number>();
+  readonly map: Record<string, string> = {}; // token → matcher name, no plaintext
+  #seen = new Map<string, string>(); // original → token, for repeat values
+  #counts = new Map<string, number>(); // per-matcher counter, gives the suffix
 
   /** Same original → same token, so redacted text keeps its structure. */
   for(original: string, matcher: string): string {
@@ -33,9 +33,11 @@ class Tokens {
   }
 }
 
+/** Runs every matcher over one string, in order. */
 function redactString(input: string, matchers: [string, RegExp][], tokens: Tokens): string {
-  let out = input;
+  let out = input; // rewritten once per matcher
   for (const [name, pattern] of matchers) {
+    // Fresh RegExp per call: a shared /g pattern carries lastIndex between strings.
     out = out.replace(new RegExp(pattern.source, pattern.flags), (m) => tokens.for(m, name));
   }
   return out;
@@ -46,8 +48,9 @@ function redactString(input: string, matchers: [string, RegExp][], tokens: Token
  * `fields` path wins outright — the whole value goes, whatever shape it is — before
  * any pattern gets a chance to run against it.
  */
+/** Recurses the value, redacting strings and named fields. */
 function walk(value: unknown, path: string, ctx: { matchers: [string, RegExp][]; fields: Set<string>; tokens: Tokens }): unknown {
-  if (ctx.fields.has(path)) {
+  if (ctx.fields.has(path)) { // whole value goes, whatever type it is
     return value === undefined ? value : ctx.tokens.for(`${path}:${JSON.stringify(value)}`, 'field');
   }
   if (typeof value === 'string') return redactString(value, ctx.matchers, ctx.tokens);
@@ -63,10 +66,11 @@ function walk(value: unknown, path: string, ctx: { matchers: [string, RegExp][];
 }
 
 /** Assemble the matcher list, then walk once. Returns a new tree; the input is untouched. */
+/** Redacts a value, returning it with a token map. */
 export function redact(value: unknown, config: RedactConfig = {}): RedactResult {
-  const matchers: [string, RegExp][] = config.preset === 'none' ? [] : [...PRESET];
+  const matchers: [string, RegExp][] = config.preset === 'none' ? [] : [...PRESET]; // copy, PRESET is shared
   (config.custom ?? []).forEach((re, i) => matchers.push([`custom:${i}`, re]));
-  const tokens = new Tokens();
+  const tokens = new Tokens(); // one map per call, numbering restarts
   const redacted = walk(value, '', { matchers, fields: new Set(config.fields ?? []), tokens });
   return { value: redacted, map: tokens.map };
 }

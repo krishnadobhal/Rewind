@@ -6,41 +6,112 @@
 
 </div>
 
-> **Status: M0, in progress.** Recording works. Replay does not exist yet.
-> This README covers what is actually built and runnable today — see
-> [READMEMAIN.md](READMEMAIN.md) for where the project is going.
+> **Status: M0 done, M1 next.** Recording works end to end — you can run an agent under
+> `rewind record` and read the trace back. Replay does not exist yet.
 
 ---
 
+## The problem
+
+You changed a prompt. What did it do to the four hundred conversations that already
+happened?
+
+LangGraph can rewind agent **state** — its time-travel API resumes from any
+`checkpoint_id` — but replaying a checkpoint re-executes the nodes. The LLM call fires
+again, the HTTP request goes out again, and both may answer differently. So you can
+*debug* a past run; you cannot *test* one.
+
+Rewind is the missing half: record every point where non-determinism enters the graph,
+then re-execute against those recordings instead of against the world.
+
 ## What works today
 
-You can record an agent's calls to a local cassette store and inspect the trace.
+```bash
+rewind record --dir .rewind -- node your-agent.js
+rewind show <run_id>
+rewind show <run_id> --json
+```
+
+```
+$ rewind record --dir .rewind -- node agent.js
+rewind: recorded 01M1V6GF92DAPRSX6N0AFF68P7
+
+$ rewind show 01M1V6GF92DAPRSX6N0AFF68P7
+01M1V6GF92DAPRSX6N0AFF68P7  complete  2 steps  7 tokens  $0.0000  42ms
+
+  seq  node                 kind    tier      req_hash          latency
+    0  plan                 model   recorded  4f862f65e4d389b6      12ms
+    1  search               tool    recorded  f73ac9e536935131      30ms
+```
 
 | | |
 |---|---|
-| ✅ Event schema | `Run`, `Step`, `Cassette` — the vocabulary in [docs/DATA_MODEL.md](docs/DATA_MODEL.md) |
+| ✅ `rewind record` | Runs your agent with recording switched on |
+| ✅ `rewind show` | Prints a trace as a table or as `{run, steps}` JSON |
 | ✅ Canonical request hashing | Decides whether two calls are *the same call*. `HASH_VERSION 3` |
-| ✅ Recorder | Emits a Step + a content-addressed Cassette per boundary crossing, and never throws into your graph |
+| ✅ Recorder | A Step + a content-addressed Cassette per boundary crossing, and it never throws into your graph |
 | ✅ Write-time redaction | Emails, phones, cards, bearer tokens — stripped before anything is written |
-| ✅ File cassette store | A directory. No Postgres, no S3, no ingest API yet |
+| ✅ File cassette store | A directory. No Postgres, no S3, no ingest API |
 | ❌ Replay, fork, sweep, bisect | Not built |
-| ❌ CLI (`rewind record`), server, UI | Not built |
-| ❌ LangGraph middleware | Not built — the recorder is called directly for now |
+| ❌ LangGraph middleware | Not built — your agent calls the SDK directly for now |
+| ❌ Server, UI, Python SDK | Not built |
 
-## The idea
+## Wiring it into an agent
 
-Recordings are keyed by **a hash of the request**, not by the order calls happened in.
+`rewind record` does not intercept anything. It can't — redaction and hashing have to
+happen *inside* your process, because a wrapper watching from outside only sees bytes on
+a socket, and by then the PII has already left the building.
+
+So `record` sets three environment variables and gets out of the way. Your agent picks
+them up:
+
+```ts
+import { recorderFromEnv } from '@rewind/sdk-js/env';
+
+const recorder = await recorderFromEnv();   // null unless REWIND_ENABLED=1
+
+recorder?.record({
+  node: 'planner',
+  kind: 'model',
+  request: { kind: 'model', provider: 'anthropic', model_id: 'claude-opus-5', messages },
+  response,
+  latency_ms: 340,
+  tokens: 128,
+  cost_usd: 0.0019,
+});
+
+recorder?.finish({ final_state_hash });
+```
+
+Outside a `rewind record` wrapper `recorderFromEnv()` returns `null`, so `recorder?.…`
+costs nothing and the same code ships to production unchanged.
+
+Configuration is one file, `rewind.config.ts`, overridden by CLI flags:
+
+```ts
+import { defineConfig } from '@rewind/sdk-js/config';
+
+export default defineConfig({
+  dir: '.rewind',
+  redact: { preset: 'default', fields: ['headers.authorization'] },
+});
+```
+
+## How recordings are keyed
+
+Recordings are named by **a hash of the request**, not by the order calls happened in.
 
 ```
 "Who won the 2025 Turing Award?"   →   1d09c6df98dcce15…   →   cassettes/1d09….json
 ```
 
 Ask the same question again and you land on the same file. Ask a different one and there
-is no file — which is the point: on a replay a changed call *cannot* be silently answered
-with a stale recording.
+is no file — which is the point: on a replay, a changed call *cannot* be quietly answered
+with a stale recording. Key by position instead ("the 3rd call") and the moment a change
+alters how many calls happen, you hand back the wrong answer and never notice.
 
-The hash is deliberately forgiving about things that aren't part of the question, and
-strict about everything else:
+The hash is deliberately forgiving about what isn't part of the question, and strict about
+everything else:
 
 | Same hash | Different hash |
 |---|---|
@@ -49,84 +120,45 @@ strict about everything else:
 | renamed tool-call ids | changed tool schema or sampling params |
 | unicode written a different way | changed system prompt |
 
-That trade-off is the whole design. Too strict and every fork misses; too loose and you
-replay a stale answer to a different question. The rules live in
-[docs/HASHING.md](docs/HASHING.md), and every one of them is pinned by a test.
+Too strict and every fork misses; too loose and you replay a stale answer to a different
+question — which is worse, because it looks like a result. Every rule in that table is
+pinned by a test.
 
-## Try it
-
-```ts
-import { Recorder } from '@rewind/sdk-js/recorder';
-import { fileStore } from '@rewind/sdk-js/store';
-
-const recorder = new Recorder({ store: fileStore('.rewind') });
-
-recorder.record({
-  node: 'planner',
-  kind: 'model',
-  request: {
-    kind: 'model',
-    provider: 'anthropic',
-    model_id: 'claude-opus-5',
-    messages: [{ role: 'user', content: 'email ada@example.com about the invoice' }],
-  },
-  response: { content: 'I should look up the invoice first.' },
-  latency_ms: 340,
-  tokens: 128,
-  cost_usd: 0.0019,
-  provider: 'anthropic',
-});
-
-recorder.finish({ final_state_hash: 'sha256:deadbeef' });
-```
-
-Writes:
+## On disk
 
 ```
 .rewind/
-  runs/01M1R6N7J97KS52A9NDM7YCGHJ/run.json      summary, seed, totals, status
-  runs/01M1R6N7J97KS52A9NDM7YCGHJ/steps.jsonl   one line per boundary crossing
-  cassettes/630d1d52a167c725….json              the recorded request + response
+  runs/01M1V6GF92DAPRSX6N0AFF68P7/run.json      summary, seed, totals, status
+  runs/01M1V6GF92DAPRSX6N0AFF68P7/steps.jsonl   one line per boundary crossing
+  cassettes/4f862f65e4d389b6….json              the recorded request + response
 ```
 
-`steps.jsonl` — the run's shape. Small, append-only, one line per step:
+Steps are per-run, small, append-only. Cassettes are shared — 500 runs behind the same
+system prompt store it once — content-addressed, and **written once**. A corrected
+recording is a new cassette, never an overwrite.
+
+Redaction happens on the way in, and the map records *that* an email was there, never
+which one:
 
 ```json
-{"run_id":"01M1R6N7…","seq":0,"node":"planner","kind":"model",
- "req_hash":"630d1d52a167c725…","cassette_ref":"630d1d52a167c725…",
- "match_tier":"recorded","latency_ms":340,"tokens":128,"cost_usd":0.0019,"error":null}
+"request": "{…\"content\":\"email [redacted:email:0] about the invoice\"}",
+"redaction_map": { "[redacted:email:0]": "email" }
 ```
 
-The cassette — the bytes, named by the hash, **written once**. Note the email:
-
-```json
-{"hash":"630d1d52a167c725…","hash_version":3,"kind":"model",
- "request":"{…\"content\":\"email [redacted:email:0] about the invoice\"}",
- "redaction_map":{"[redacted:email:0]":"email"}, …}
-```
-
-The map records *that* an email was there, never which one. Redaction is one-way by
-design: a cassette store holds whatever your agent saw, so it is treated as a production
-data store, not as test fixtures.
+There is no read-time redaction path, and there must never be one. A cassette store holds
+whatever your agent saw, so treat it as a production data store, not as test fixtures.
 
 ## Packages
 
 ```
-packages/core/     Schema + canonicalization + hashing. No I/O, no network, no filesystem.
-packages/sdk-js/   Recorder, redactor, cassette store, ULIDs.
+packages/core/     Schema, canonicalization, hashing. No I/O, no network, no filesystem.
+packages/sdk-js/   Recorder, redactor, cassette store, config, env handshake, ULIDs.
+packages/cli/      rewind record | show
 ```
 
-`sdk-js` depends on `core`. Nothing depends on `sdk-js` — it is the only code that runs
-inside your process, which is why the dependency arrow only points one way.
-
-| Module | Does |
-|---|---|
-| `core/hash.ts` | Canonical form + `req_hash`. **A wire format** — changing it invalidates every recording |
-| `core/schema.ts` | `Run`, `Step`, `Cassette`, `StepKind`, `MatchTier` |
-| `sdk-js/recorder.ts` | Hash → redact → write cassette → append step → roll up totals |
-| `sdk-js/redact.ts` | Regex matchers, stable tokens, map of token → matcher name |
-| `sdk-js/store.ts` | `Store` interface + a filesystem implementation |
-| `sdk-js/ulid.ts` | Time-sortable run ids |
+Dependencies point one way, into `core`. Nothing imports upward. `sdk-js` is the only code
+that runs inside your process, which is why it stays small and why the store sits behind a
+three-method interface — swap `fileStore` for a real backend and nothing upstream changes.
 
 ## Two behaviours worth knowing
 
@@ -135,23 +167,23 @@ serialization bug is caught, counted, and logged at most once a minute — your 
 running. The run is then marked `partial`, and a partial run is never a replay source. The
 caller cannot override that.
 
-**Cassettes are immutable.** `putCassette` skips a hash that already exists. A corrected
-recording is a *new* cassette, never an overwrite — content addressing makes mutation a
-contradiction.
+**Match tier is always reported.** Every step carries the tier it resolved at, and `show`
+always prints the column. A run that resolved 96% exact is evidence; one that resolved 40%
+by fuzzy match is a hypothesis. The code must never let those two look alike.
 
 ## Develop
 
 ```bash
 pnpm install
 pnpm build
-pnpm test        # 40 tests
+pnpm test        # 46 tests
 ```
 
-The tests are load-bearing here rather than decorative: this project's failure mode is
-silent. If canonicalization drifts, everything still runs and still writes files — it just
-stops finding the right recordings. `core/test/hash.golden.json` pins ~12 requests to
-exact hashes so drift fails loudly, and it fails equally loudly when you *meant* to change
-canonicalization and didn't.
+The tests are load-bearing here rather than decorative, because this project's failure
+mode is silent: if canonicalization drifts, everything still runs and still writes files —
+it just stops finding the right recordings. `core/test/hash.golden.json` pins ~12 requests
+to exact hashes so drift fails loudly, and it fails equally loudly when you *meant* to
+change canonicalization and didn't.
 
 Never change canonicalization without bumping `HASH_VERSION` and regenerating the goldens:
 
@@ -161,11 +193,9 @@ UPDATE_GOLDENS=1 node --test packages/core/test/hash.test.ts   # then review the
 
 ## Next
 
-[M1](docs/ROADMAP.md): `ReplayModel`, virtual clock, seeded RNG, deterministic scheduler —
-replay a recorded run to an identical final-state hash with the network blocked. That
-milestone is the one that proves the thesis.
-
-Read [AGENTS.md](AGENTS.md) §3 before contributing.
+**M1** — `ReplayModel`, `ReplayToolNode`, virtual clock, seeded RNG, deterministic
+scheduler. `rewind replay <run_id>` reproduces a run's final-state hash with the network
+blocked. That milestone is the one that proves the thesis; everything after it is leverage.
 
 ## License
 

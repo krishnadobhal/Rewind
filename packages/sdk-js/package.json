@@ -5,7 +5,10 @@
   "exports": {
     "./recorder": "./dist/recorder.js",
     "./redact": "./dist/redact.js",
-    "./store": "./dist/store.js"
+    "./store": "./dist/store.js",
+    "./config": "./dist/config.js",
+    "./env": "./dist/env.js",
+    "./ulid": "./dist/ulid.js"
   },
   "dependencies": {
     "@rewind/core": "workspace:*"

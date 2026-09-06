@@ -9,10 +9,10 @@ const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
  */
 export function ulid(now = Date.now()): string {
   // Least-significant symbol first, each one prepended, so the result reads big-endian.
-  let time = '';
+  let time = ''; // 10 symbols, most significant first
   for (let t = now, i = 0; i < 10; i++, t = Math.floor(t / 32)) time = ALPHABET[t % 32] + time;
   // 256 / 32 is exact, so a uniform byte gives a uniform symbol.
-  let rand = '';
+  let rand = ''; // 16 symbols, 80 bits
   for (const byte of randomBytes(16)) rand += ALPHABET[byte % 32];
   return time + rand;
 }

@@ -6,6 +6,9 @@
     },
     {
       "path": "packages/sdk-js"
+    },
+    {
+      "path": "packages/cli"
     }
   ]
 }

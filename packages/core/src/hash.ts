@@ -44,9 +44,11 @@ const DATA_URL_RE = /^data:[^;,]*;base64,([A-Za-z0-9+/=\s]+)$/;
 
 /* Renames volatile ids to call_0, call_1 … by first appearance within one request. */
 class Ordinals {
-  #seen = new Map<string, string>();
+  #seen = new Map<string, string>(); // original id → its ordinal
+
+  /** Returns this id's ordinal, memoized so cross-references hold. */
   of(id: string): string {
-    let ordinal = this.#seen.get(id);
+    let ordinal = this.#seen.get(id); // seen already? reuse it
     if (ordinal === undefined) {
       // Map size is the counter; a repeat hits the get above and never advances it.
       ordinal = `call_${this.#seen.size}`;
@@ -56,15 +58,16 @@ class Ordinals {
   }
 }
 
+/** Replaces a blob with the digest of its decoded bytes. */
 function digestBase64(b64: string): string {
   return `sha256:${createHash('sha256').update(Buffer.from(b64, 'base64')).digest('hex')}`;
 }
 
 /** Every string in the request passes through here. HASHING.md §3, steps 1, 2 and 4. */
 export function normalizeText(input: string): string {
-  const dataUrl = DATA_URL_RE.exec(input);
+  const dataUrl = DATA_URL_RE.exec(input); // data: URL carries its own marker
   if (dataUrl) return digestBase64(dataUrl[1]!);
-  if (input.length >= BASE64_MIN && BASE64_RE.test(input)) return digestBase64(input);
+  if (input.length >= BASE64_MIN && BASE64_RE.test(input)) return digestBase64(input); // bare blob
 
   const nfc = input.normalize('NFC').replace(/\r\n?/g, '\n');
   // Odd indices are fenced blocks; leave them byte-for-byte — indentation changes behaviour.
@@ -73,11 +76,13 @@ export function normalizeText(input: string): string {
     .map((part, i) => (i % 2 === 1 ? part : collapseHorizontal(part)))
     .join('')
     .split('\n');
+  // Leading and trailing blank lines carry no meaning; interior ones do.
   while (lines.length > 0 && lines[0]!.trim() === '') lines.shift();
   while (lines.length > 0 && lines[lines.length - 1]!.trim() === '') lines.pop();
   return lines.join('\n');
 }
 
+/** Collapses runs of spaces and tabs, strips trailing space. */
 function collapseHorizontal(chunk: string): string {
   return chunk
     .split('\n')
@@ -141,7 +146,8 @@ export function canonical(req: RewindRequest): Record<string, unknown> {
 
 /** req_hash = sha256(HASH_VERSION ‖ "\x00" ‖ jcs(canonical(request))) */
 export function reqHash(req: RewindRequest): string {
-  const canonicalJson = canonicalize(canonical(req));
+  const canonicalJson = canonicalize(canonical(req)); // RFC 8785, sorts and formats
   if (canonicalJson === undefined) throw new Error('canonicalize returned undefined — non-JSON value in request');
+  // Version prefix means a v3 hash can never equal a v4 hash of the same request.
   return createHash('sha256').update(`${HASH_VERSION}\x00${canonicalJson}`).digest('hex');
 }
