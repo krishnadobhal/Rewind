@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { reqHash } from '@rewind/core/hash';
 import type { ModelRequest } from '@rewind/core/request';
 import type { Step } from '@rewind/core/schema';
 import { Recorder } from '../src/recorder.ts';
-import { fileStore, type Store } from '../src/store.ts';
+import { fileStore, listRuns, readCassette, readTrace, type Store } from '../src/store.ts';
 
 const root = () => mkdtempSync(join(tmpdir(), 'rewind-'));
 
@@ -132,4 +132,13 @@ test('a dropped event marks the run partial, and the caller cannot override it',
   recorder.finish(null, 'complete');
   assert.equal(recorder.run.status, 'partial');
   assert.equal(recorder.stats.steps, 1);
+});
+
+test('a malformed store reads as empty, it does not throw', () => {
+  const dir = root();
+  // A recorder that failed open can leave exactly this behind.
+  writeFileSync(join(dir, 'runs'), 'not a directory');
+  assert.deepEqual(listRuns(dir), []);
+  assert.equal(readTrace(dir, 'run_whatever'), null);
+  assert.equal(readCassette(dir, 'deadbeef'), null);
 });

@@ -4,7 +4,7 @@
   "packageManager": "pnpm@11.21.0",
   "scripts": {
     "build": "tsc -b",
-    "test": "tsc -b && node --test \"packages/*/test/*.test.ts\""
+    "test": "tsc -b && node --test \"packages/*/test/*.test.ts\" \"examples/*/test/*.test.ts\""
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

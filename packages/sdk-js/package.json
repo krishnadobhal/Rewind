@@ -8,7 +8,8 @@
     "./store": "./dist/store.js",
     "./config": "./dist/config.js",
     "./env": "./dist/env.js",
-    "./ulid": "./dist/ulid.js"
+    "./ulid": "./dist/ulid.js",
+    "./middleware": "./dist/middleware.js"
   },
   "dependencies": {
     "@rewind/core": "workspace:*"

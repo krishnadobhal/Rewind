@@ -38,27 +38,33 @@ export function fileStore(root: string): Store {
   };
 }
 
+function orNull<T>(read: () => T): T | null {
+  try {
+    return read();
+  } catch {
+    return null; // unreadable, corrupt, or not the shape we expected
+  }
+}
+
 /** Reads one run and its steps back off disk. */
 export function readTrace(root: string, runId: string): Trace | null {
   const dir = join(root, 'runs', runId);
-  if (!existsSync(join(dir, 'run.json'))) return null; // unknown run id
-  const run = JSON.parse(readFileSync(join(dir, 'run.json'), 'utf8')) as Run;
-  const jsonl = existsSync(join(dir, 'steps.jsonl')) ? readFileSync(join(dir, 'steps.jsonl'), 'utf8') : '';
-  // Trim first: a trailing newline would split into one empty line.
-  const steps = jsonl.trim() === '' ? [] : jsonl.trim().split('\n').map((line) => JSON.parse(line) as Step);
-  return { run, steps };
+  return orNull(() => {
+    const run = JSON.parse(readFileSync(join(dir, 'run.json'), 'utf8')) as Run;
+    const jsonl = existsSync(join(dir, 'steps.jsonl')) ? readFileSync(join(dir, 'steps.jsonl'), 'utf8') : '';
+    // Trim first: a trailing newline would split into one empty line.
+    const steps = jsonl.trim() === '' ? [] : jsonl.trim().split('\n').map((line) => JSON.parse(line) as Step);
+    return { run, steps };
+  });
 }
 
 /** Lists run ids, oldest first, ULIDs sort by time. */
 export function listRuns(root: string): string[] {
-  const dir = join(root, 'runs');
-  if (!existsSync(dir)) return []; // nothing recorded yet
-  return readdirSync(dir).sort();
+  // Not a directory is as good as empty: nothing has been recorded here.
+  return orNull(() => readdirSync(join(root, 'runs')).sort()) ?? [];
 }
 
 /** Reads one cassette by its content hash. */
 export function readCassette(root: string, hash: string): Cassette | null {
-  const path = join(root, 'cassettes', `${hash}.json`);
-  if (!existsSync(path)) return null; // hash never recorded here
-  return JSON.parse(readFileSync(path, 'utf8')) as Cassette;
+  return orNull(() => JSON.parse(readFileSync(join(root, 'cassettes', `${hash}.json`), 'utf8')) as Cassette);
 }

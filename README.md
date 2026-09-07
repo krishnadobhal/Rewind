@@ -52,9 +52,11 @@ $ rewind show 01M1V6GF92DAPRSX6N0AFF68P7
 | ✅ Recorder | A Step + a content-addressed Cassette per boundary crossing, and it never throws into your graph |
 | ✅ Write-time redaction | Emails, phones, cards, bearer tokens — stripped before anything is written |
 | ✅ File cassette store | A directory. No Postgres, no S3, no ingest API |
+| ✅ `withRewind` | Wraps any number of LangGraph models and tools; every call becomes a step |
+| ✅ Reference agent | `examples/deep-research-agent` — a real graph, runnable with no API key |
 | ❌ Replay, fork, sweep, bisect | Not built |
-| ❌ LangGraph middleware | Not built — your agent calls the SDK directly for now |
-| ❌ Server, UI, Python SDK | Not built |
+| ❌ Trace browser | Not built — a web viewer to browse recorded runs and step through them, the way you'd read a trace in LangSmith |
+| ❌ Server, Python SDK | Not built |
 
 ## Wiring it into an agent
 
@@ -62,29 +64,53 @@ $ rewind show 01M1V6GF92DAPRSX6N0AFF68P7
 happen *inside* your process, because a wrapper watching from outside only sees bytes on
 a socket, and by then the PII has already left the building.
 
-So `record` sets three environment variables and gets out of the way. Your agent picks
-them up:
+So `record` sets three environment variables and gets out of the way. Instrument where
+you build the graph — that is the one place holding every model and tool at once:
 
 ```ts
-import { recorderFromEnv } from '@rewind/sdk-js/env';
+import { withRewind } from '@rewind/sdk-js/middleware';
 
-const recorder = await recorderFromEnv();   // null unless REWIND_ENABLED=1
+export async function buildGraph({ model, tools, router }) {
+  const rw = await withRewind({ model, tools });     // both wrapped
+  const routerModel = rw.wrap(router);               // any number of extra models
 
-recorder?.record({
-  node: 'planner',
-  kind: 'model',
-  request: { kind: 'model', provider: 'anthropic', model_id: 'claude-opus-5', messages },
-  response,
-  latency_ms: 340,
-  tokens: 128,
-  cost_usd: 0.0019,
-});
+  const graph = new StateGraph(MessagesAnnotation)
+    .addNode('plan', speak(rw.model.bindTools(rw.tools)))
+    .addNode('tools', new ToolNode(rw.tools))
+    // …
+    .compile();
 
-recorder?.finish({ final_state_hash });
+  return { graph, recorder: rw.recorder };
+}
 ```
 
-Outside a `rewind record` wrapper `recorderFromEnv()` returns `null`, so `recorder?.…`
-costs nothing and the same code ships to production unchanged.
+Callers hand in raw models and get an instrumented graph back, so there is no
+wrapped/unwrapped pair to mismatch — passing the graph an uninstrumented tool would
+drop every tool step from the trace and report nothing wrong.
+
+It wraps the **model** and the **tools**, not the compiled graph. A compiled graph's
+nodes are opaque — `plan.bound` is a `RunnableCallable` whose model is captured inside a
+closure — so there is no path from a compiled graph back to the objects that cross
+boundaries. Wrapping `invoke` is the only interception point that exists.
+
+`bindTools` stays wrapped, so what gets hashed is the JSON Schema the provider actually
+receives. Node names come from LangGraph, so a step knows it happened in `plan` rather
+than "somewhere".
+
+Most agents run more than one model — a cheap router, an expensive planner. `model` and
+`tools` are sugar for the common one-model shape; `wrap` records anything else.
+`model_id` and `provider` are part of a request's identity, so the same prompt sent to
+two models is two cassettes, not one overwriting the other.
+
+**One process is one run.** `withRewind` memoizes the recorder, so calling it more than
+once joins the existing run rather than opening a rival one — six models still means one
+`run_id`, one `steps.jsonl`, and `seq` ordering them.
+
+Outside a `rewind record` wrapper, `withRewind` hands back your model and tools
+untouched, `wrap` is the identity function, and `recorder` is `null` — the same code
+ships to production unchanged. If you are not on LangGraph, `recorderFromEnv()` gives you
+the recorder directly and you call
+`recorder?.record({ node, kind, request, response, latency_ms })` yourself.
 
 Configuration is one file, `rewind.config.ts`, overridden by CLI flags:
 
@@ -148,12 +174,83 @@ which one:
 There is no read-time redaction path, and there must never be one. A cassette store holds
 whatever your agent saw, so treat it as a production data store, not as test fixtures.
 
+## Runs, steps and cassettes
+
+Three record types and four ids. Every command after `record` is phrased in them.
+
+| id | names | comes from |
+|---|---|---|
+| `run_id` | one execution of your agent | a ULID, minted once when the recorder opens |
+| `seq` | a step's position within that run | a counter, starting at 0 |
+| `req_hash` | what was asked | SHA-256 of the canonical request |
+| `cassette_ref` | which recording answered it | `= req_hash` while recording |
+
+**A run** is one execution. `run_id` is a ULID — a millisecond timestamp followed by
+randomness — so sorting run ids alphabetically sorts them by time. That is why `listRuns`
+is a plain `.sort()` and why `record` can tell which run it just created.
+
+**A step** is one boundary crossing: a model call, a tool call, a clock read. Small,
+ordered, append-only. It records *that something happened* — where, how long, in what
+order — and carries no request or response of its own.
+
+**A cassette** is the payload, named by the hash of the request and shared by every step
+that made the same call.
+
+Steps point at cassettes, many to one. Two runs of a support agent that open identically
+and diverge on the user's question:
+
+```
+RUN 01M1XSBGGK…                  RUN 01M1XSBGN8…
+  seq 0  greet  → f0bff2af         seq 0  greet  → f0bff2af     ← same recording
+  seq 1  answer → 2b181106         seq 1  answer → 3940b55a     ← different questions
+```
+
+Four steps, three cassettes. The greeting is stored once however many runs open that way;
+at 500 runs that is 1000 steps and 501 cassettes.
+
+### A step has no id of its own
+
+`(run_id, seq)` is the key. Neither half identifies anything alone — every run has a
+`seq 0`, and every run has many steps — but the pair always does.
+
+| ask for | matches |
+|---|---|
+| `seq = 1` | 2 steps — every run has one |
+| `run_id = 01M1XSBGN8…` | 2 steps — that run has several |
+| both | 1 step |
+
+A generated `step_id` would answer no question those two don't, and it could not express
+`rewind fork <run_id> --at 7` — "run 1, step 7" *is* the pair.
+
+`seq` counts **calls, not nodes**. A ReAct loop is one node that calls the model, calls a
+tool, then calls the model again — one `node` value across six steps — while a node doing
+only arithmetic produces none. Hence `--at 7` rather than `--at plan`, which could not say
+which of the three.
+
+### Why `cassette_ref` exists when replay resolves by hash
+
+Replay never reads it. It hashes the request the agent is about to make and opens that
+file; content-addressing means the request *is* the lookup key.
+
+The back-pointer earns its twelve bytes when you delete a run. Drop the oldest hundred and
+their cassettes should go too — unless another run still needs them. `cassette_ref` answers
+that by reading JSONL. Without it you would re-execute all 500 agents to discover which
+files they touched, because the requests that produced those hashes live inside the very
+cassettes you are deciding about.
+
+It is also where a substitution gets recorded once fork and structural matching exist:
+`req_hash: abc…` with `cassette_ref: def…` and `match_tier: structural` says this call
+matched nothing on disk but a near-match was accepted — precisely the thing a trace must
+never hide.
+
 ## Packages
 
 ```
 packages/core/     Schema, canonicalization, hashing. No I/O, no network, no filesystem.
-packages/sdk-js/   Recorder, redactor, cassette store, config, env handshake, ULIDs.
+packages/sdk-js/   withRewind, recorder, redactor, cassette store, config, env handshake.
 packages/cli/      rewind record | show
+examples/deep-research-agent/   The reference workload. `start` runs one model,
+                                `start:multi` adds a cheap router in front of it.
 ```
 
 Dependencies point one way, into `core`. Nothing imports upward. `sdk-js` is the only code
@@ -176,7 +273,7 @@ by fuzzy match is a hypothesis. The code must never let those two look alike.
 ```bash
 pnpm install
 pnpm build
-pnpm test        # 46 tests
+pnpm test        # 66 tests
 ```
 
 The tests are load-bearing here rather than decorative, because this project's failure
@@ -196,6 +293,20 @@ UPDATE_GOLDENS=1 node --test packages/core/test/hash.test.ts   # then review the
 **M1** — `ReplayModel`, `ReplayToolNode`, virtual clock, seeded RNG, deterministic
 scheduler. `rewind replay <run_id>` reproduces a run's final-state hash with the network
 blocked. That milestone is the one that proves the thesis; everything after it is leverage.
+
+Everything deliberately skipped along the way — the clock and RNG shims, the batching
+emitter, Postgres, `rewind doctor` — is logged with the trigger
+that should pull it forward.
+
+**M6 — the viewer.** `rewind show` is a table in a terminal; the same recordings deserve a
+screen. A web UI to browse your runs, filter them by status, node or tag, open one and walk
+its timeline, and read each step's request and response side by side — trace browsing in
+the shape LangSmith taught everyone to expect, over cassettes already sitting on your disk.
+The sweep view lands alongside it: two runs, one deliberate change, diffed step by step.
+
+It reads through the server API rather than the filesystem, so it arrives after the server
+does. And it stays a viewer over *your recordings* — Rewind is not becoming an
+observability vendor, and it exports to LangSmith rather than replacing it.
 
 ## License
 
