@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rewind</title>
+<style>
+  :root {
+    --bg: #0e1013; --panel: #16191e; --line: #262b33; --ink: #e6e9ef;
+    --dim: #8b93a1; --accent: #7aa2f7; --ok: #7fd88f; --warn: #e0af68; --bad: #f7768e;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    /* Three steps, ~1.24 apart. Anything between them flattens the hierarchy. */
+    --fs-label: 10.5px;  /* section heads, tier chips, secondary metadata */
+    --fs-body: 13px;     /* rows, code, the things you actually read */
+    --fs-title: 16px;    /* the app name and the selected step */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; display: grid;
+    grid-template-columns: 300px 400px 1fr; grid-template-rows: 44px 1fr;
+    background: var(--bg); color: var(--ink); font: var(--fs-body)/1.5 var(--mono);
+  }
+  header {
+    grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px;
+    padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header b { font-size: var(--fs-title); font-weight: 600; letter-spacing: -.01em; }
+  header span { color: var(--dim); font-size: var(--fs-label); letter-spacing: .04em; }
+  .pane { overflow-y: auto; border-right: 1px solid var(--line); }
+  .pane:last-child { border-right: 0; }
+  .head {
+    position: sticky; top: 0; background: var(--panel); color: var(--dim);
+    padding: 8px 12px; border-bottom: 1px solid var(--line);
+    font-size: var(--fs-label); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .09em;
+  }
+  .row {
+    padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer;
+  }
+  .row:hover { background: #1b1f26; }
+  .row[aria-selected="true"] { background: #1d2530; box-shadow: inset 2px 0 0 var(--accent); }
+  .id { color: var(--accent); overflow-wrap: anywhere; }
+  .meta { color: var(--dim); font-size: var(--fs-label); line-height: 1.6; margin-top: 4px; }
+  .tier { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: var(--fs-label); font-weight: 600; }
+  .exact, .recorded { color: var(--ok); background: #7fd88f1a; }
+  .miss { color: var(--bad); background: #f7768e1a; }
+  .structural, .semantic { color: var(--warn); background: #e0af681a; }
+  .partial { color: var(--warn); }
+  .error { color: var(--bad); }
+  .complete { color: var(--ok); }
+  .seq { color: var(--dim); display: inline-block; width: 22px; }
+  .kind { color: var(--dim); }
+  .detail { padding: 14px; }
+  .detail h2 { margin: 0 0 6px; font-size: var(--fs-title); font-weight: 600; line-height: 1.3; }
+  .hash { color: var(--dim); font-size: var(--fs-label); overflow-wrap: anywhere; margin-bottom: 14px; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .split > div > h3 {
+    margin: 0 0 6px; font-size: var(--fs-label); font-weight: 600; color: var(--dim);
+    text-transform: uppercase; letter-spacing: .09em;
+  }
+  pre {
+    margin: 0; padding: 10px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 4px; overflow: auto; max-height: calc(100vh - 220px);
+    white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body);
+  }
+  .empty { padding: 20px 14px; color: var(--dim); }
+  .redaction { margin-top: 14px; color: var(--dim); font-size: var(--fs-label); }
+  .redaction code { color: var(--warn); }
+  @media (max-width: 1100px) { body { grid-template-columns: 240px 320px 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <b>⏪ Rewind</b>
+  <span id="status">loading…</span>
+</header>
+
+<div class="pane" id="runs"><div class="head">Runs</div></div>
+<div class="pane" id="steps"><div class="head">Steps</div><div class="empty">Pick a run.</div></div>
+<div class="pane" id="detail"><div class="head">Step</div><div class="empty">Pick a step.</div></div>
+
+<script type="module">
+// Relative URLs only — never a baked-in absolute base path. That is what keeps this
+// page mountable under a prefix later, and it is bull-board's most common bug report.
+const get = async (path) => {
+  const response = await fetch(path);
+  if (!response.ok) throw new Error(`${path} → ${response.status}`);
+  return response.json();
+};
+
+const el = (html) => Object.assign(document.createElement('div'), { innerHTML: html }).firstElementChild;
+const esc = (value) => String(value).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const pretty = (value) => esc(JSON.stringify(value, null, 2));
+
+/** Renders the tier counts as coloured chips — always shown, even the zeroes' absence. */
+const tierChips = (tiers) =>
+  Object.entries(tiers).map(([tier, n]) => `<span class="tier ${tier}">${tier} ${n}</span>`).join(' ');
+
+let selectedRun = null;
+
+/** Fills the left pane with every recorded run, newest first. */
+async function loadRuns() {
+  const runs = await get('api/runs');
+  const pane = document.getElementById('runs');
+  document.getElementById('status').textContent =
+    runs.length === 0 ? 'no runs yet — record one with `rewind record`' : `${runs.length} run${runs.length === 1 ? '' : 's'}`;
+
+  for (const run of runs) {
+    const when = new Date(run.started_at).toLocaleTimeString();
+    const row = el(`<div class="row" role="option">
+      <div class="id">${esc(run.run_id)}</div>
+      <div class="meta">
+        <span class="${esc(run.status)}">${esc(run.status)}</span> ·
+        ${run.steps} steps · ${run.tokens} tok · ${when}
+      </div>
+      <div class="meta">${tierChips(run.tiers)}</div>
+    </div>`);
+    row.onclick = () => selectRun(run.run_id, row);
+    pane.append(row);
+  }
+}
+
+/** Loads one run's steps into the middle pane. */
+async function selectRun(runId, row) {
+  for (const other of document.querySelectorAll('#runs .row')) other.removeAttribute('aria-selected');
+  row.setAttribute('aria-selected', 'true');
+  selectedRun = runId;
+
+  const { run, steps } = await get(`api/runs/${runId}`);
+  const pane = document.getElementById('steps');
+  pane.innerHTML = '<div class="head">Steps</div>';
+  // A partial run dropped events, so say so loudly — it is not a valid replay source.
+  if (run.status === 'partial') {
+    pane.append(el('<div class="empty partial">⚠ partial — events were dropped; not usable as a replay source</div>'));
+  }
+  if (steps.length === 0) pane.append(el('<div class="empty">No steps recorded.</div>'));
+
+  for (const step of steps) {
+    const stepRow = el(`<div class="row" role="option">
+      <div><span class="seq">${step.seq}</span> ${esc(step.node)} <span class="kind">${esc(step.kind)}</span></div>
+      <div class="meta">
+        <span class="tier ${esc(step.match_tier)}">${esc(step.match_tier)}</span>
+        ${esc(step.req_hash.slice(0, 16))}… · ${step.latency_ms}ms
+      </div>
+    </div>`);
+    stepRow.onclick = () => selectStep(step, stepRow);
+    pane.append(stepRow);
+  }
+}
+
+/** Shows one step's request beside its response — the thing a terminal cannot do. */
+async function selectStep(step, row) {
+  for (const other of document.querySelectorAll('#steps .row')) other.removeAttribute('aria-selected');
+  row.setAttribute('aria-selected', 'true');
+
+  const pane = document.getElementById('detail');
+  pane.innerHTML = '<div class="head">Step</div>';
+
+  // A missed step has no cassette by definition — that is what the miss means.
+  if (step.cassette_ref === null) {
+    pane.append(el(`<div class="detail">
+      <h2>${esc(step.node)} · seq ${step.seq} · <span class="tier miss">${esc(step.match_tier)}</span></h2>
+      <div class="hash">${esc(step.req_hash)}</div>
+      <div class="empty">No cassette matched this request, so the step did not replay.</div>
+    </div>`));
+    return;
+  }
+
+  const cassette = await get(`api/cassettes/${step.req_hash}`);
+  const redactions = Object.entries(cassette.redaction_map ?? {});
+  pane.append(el(`<div class="detail">
+    <h2>${esc(step.node)} · seq ${step.seq} · ${esc(step.kind)} ·
+        <span class="tier ${esc(step.match_tier)}">${esc(step.match_tier)}</span></h2>
+    <div class="hash">${esc(step.req_hash)}</div>
+    <div class="split">
+      <div><h3>Request</h3><pre>${pretty(cassette.request)}</pre></div>
+      <div><h3>Response</h3><pre>${pretty(cassette.response)}</pre></div>
+    </div>
+    <div class="redaction">${
+      redactions.length === 0
+        ? 'Nothing redacted.'
+        : `Redacted: ${redactions.map(([token, kind]) => `<code>${esc(token)}</code> ${esc(kind)}`).join(' · ')}`
+    }</div>
+  </div>`));
+}
+
+loadRuns().catch((error) => {
+  // Commonest cause by far: the file was opened from a static server or from disk, so
+  // the relative api/ URLs resolve somewhere with no API behind them. Say that, rather
+  // than showing a bare 404 and letting someone conclude there are no runs.
+  const status = document.getElementById('status');
+  status.textContent = 'no API at this address';
+  document.getElementById('runs').append(el(
+    '<div class="empty">' +
+    '<p><b>Nothing is serving the data here.</b></p>' +
+    '<p>This page has to be served by the viewer itself — it reads the store, ' +
+    'and a static file server does not.</p>' +
+    '<p style="margin-top:12px">Run <code>pnpm -F @rewind/ui dev</code> and open ' +
+    '<a href="http://localhost:4100" style="color:var(--accent)">http://localhost:4100</a>.</p>' +
+    '<p style="margin-top:12px">Tried <code>' + esc(new URL('api/runs', location.href).href) +
+    '</code> — ' + esc(error.message) + '</p>' +
+    '</div>'
+  ));
+});
+</script>
+</body>
+</html>

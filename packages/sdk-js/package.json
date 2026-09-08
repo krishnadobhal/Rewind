@@ -9,7 +9,8 @@
     "./config": "./dist/config.js",
     "./env": "./dist/env.js",
     "./ulid": "./dist/ulid.js",
-    "./middleware": "./dist/middleware.js"
+    "./middleware": "./dist/middleware.js",
+    "./replay": "./dist/replay.js"
   },
   "dependencies": {
     "@rewind/core": "workspace:*"

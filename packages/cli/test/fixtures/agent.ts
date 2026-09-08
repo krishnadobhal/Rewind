@@ -3,6 +3,8 @@ import { recorderFromEnv } from '@rewind/sdk-js/env';
 
 const recorder = await recorderFromEnv({ thread_id: 'th_fixture' });
 console.log('agent: working'); // proves stdio passes through
+// Echo argv so a test can prove the shell did not chop it up.
+console.log(`argv: ${process.argv.slice(2).join(' ')}`);
 
 // `?.` is the whole fail-open contract: un-wrapped runs skip recording.
 recorder?.record({

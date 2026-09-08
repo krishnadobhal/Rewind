@@ -151,3 +151,17 @@ export function reqHash(req: RewindRequest): string {
   // Version prefix means a v3 hash can never equal a v4 hash of the same request.
   return createHash('sha256').update(`${HASH_VERSION}\x00${canonicalJson}`).digest('hex');
 }
+
+/**
+ * Canonical digest of any JSON value — the same normalization a request gets.
+ *
+ * This is what `final_state_hash` should be. `JSON.stringify` would make key order look
+ * like a changed outcome, and would put every random message id straight into the
+ * digest, so an identical replay would report a mismatch that never happened.
+ */
+export function stateHash(value: unknown): string {
+  // normalizeValue scrubs volatile ids to ordinals, so a regenerated UUID is invisible.
+  const canonicalJson = canonicalize(normalizeValue(value, new Ordinals()));
+  if (canonicalJson === undefined) throw new Error('stateHash: value is not JSON');
+  return `sha256:${createHash('sha256').update(`${HASH_VERSION}\x00${canonicalJson}`).digest('hex')}`;
+}

@@ -7,12 +7,14 @@
 import { parseArgs } from 'node:util';
 import { DEFAULT_DIR, loadConfig } from '@rewind/sdk-js/config';
 import { record } from './record.ts';
+import { replay } from './replay.ts';
 import { show } from './show.ts';
 
 const USAGE = `rewind — deterministic record & replay for LangGraph agents
 
   rewind record [--dir <path>] -- <cmd> [args]   run an agent with recording on
   rewind show <run_id> [--json]                  print a recorded trace
+  rewind replay <run_id> [--on-miss=…] -- <cmd>  run it again from cassettes
 
   --config <path>   default: ./rewind.config.ts
   --dir <path>      cassette store root; overrides config.dir
@@ -37,6 +39,7 @@ async function main(argv: string[]): Promise<number> {
       config: { type: 'string' },
       dir: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
+      'on-miss': { type: 'string', default: 'strict' },
     },
   });
 
@@ -53,6 +56,16 @@ async function main(argv: string[]): Promise<number> {
   switch (command) {
     case 'record':
       return record(root, childArgv, values.config);
+    case 'replay': {
+      const runId = rest[0];
+      if (runId === undefined) {
+        console.error('rewind: replay needs a run id');
+        return 1;
+      }
+      // strict is the default: a plain replay that needs the network has failed (I6).
+      const onMiss = values['on-miss'] === 'live' ? 'live' : 'strict';
+      return replay(root, runId, childArgv, { onMiss, configPath: values.config });
+    }
     case 'show': {
       const runId = rest[0];
       if (runId === undefined) {

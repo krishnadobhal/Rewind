@@ -71,3 +71,14 @@ test('usage errors exit 1', () => {
   assert.equal(rewind([]).status, 1, 'no command');
   assert.equal(rewind(['show', 'run_nope', '--dir', root()]).status, 1, 'unknown run');
 });
+
+test('an argument with spaces reaches the agent intact', () => {
+  const dir = root();
+  // A quoted question used to arrive as its last word: cmd.exe split it, because
+  // `node` has no extension and so went through a shell. Silent, and it changed
+  // what got recorded.
+  const question = 'How do you replay a LangGraph agent deterministically?';
+  const run = rewind(['record', '--dir', dir, '--', process.execPath, AGENT, question]);
+  assert.equal(run.status, 0);
+  assert.match(run.stdout, new RegExp(`argv: ${question.replace(/\?/g, '\?')}`), 'the whole sentence, not its last word');
+});

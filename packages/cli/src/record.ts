@@ -5,11 +5,11 @@
  * of the way, and reports which runs appeared. Redaction and hashing happen inside the
  * child, in the user's process, which is the only place they may happen (I4).
  */
-import { spawnSync } from 'node:child_process';
-import { extname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { listRuns } from '@rewind/sdk-js/store';
 import { ENV_CONFIG, ENV_DIR, ENV_ENABLED } from '@rewind/sdk-js/env';
 import { ulid } from '@rewind/sdk-js/ulid';
+import { spawnAgent } from './spawn.ts';
 
 /** Spawns the agent with recording env, reports new runs. */
 export function record(root: string, argv: string[], configPath?: string): number {
@@ -19,26 +19,12 @@ export function record(root: string, argv: string[], configPath?: string): numbe
   }
   // ULIDs sort by time, so a watermark id separates before from after.
   const watermark = ulid().slice(0, 10);
-  const [command, ...args] = argv;
 
-  const child = spawnSync(command!, args, {
-    stdio: 'inherit', // the agent's output is the user's output
-    env: {
-      ...process.env,
-      [ENV_ENABLED]: '1',
-      [ENV_DIR]: resolve(root), // absolute: the child may chdir
-      ...(configPath ? { [ENV_CONFIG]: resolve(configPath) } : {}),
-    },
-    // Windows resolves a bare `pnpm` to a .cmd shim, which needs a shell. A path
-    // that already has an extension must not get one, or a space in it splits
-    // the command. ponytail: args with spaces stay unquoted in the shell case.
-    shell: process.platform === 'win32' && extname(command!) === '',
+  const status = spawnAgent(argv, {
+    [ENV_ENABLED]: '1',
+    [ENV_DIR]: resolve(root), // absolute: the child may chdir
+    ...(configPath ? { [ENV_CONFIG]: resolve(configPath) } : {}),
   });
-
-  if (child.error) {
-    console.error(`rewind: could not run ${command}:`, child.error.message);
-    return 1;
-  }
 
   const fresh = listRuns(root).filter((id) => id.slice(0, 10) >= watermark);
   if (fresh.length === 0) {
@@ -48,5 +34,5 @@ export function record(root: string, argv: string[], configPath?: string): numbe
     for (const id of fresh) console.error(`rewind: recorded ${id}`);
   }
   // The child's exit code is the command's result, not ours.
-  return child.status ?? 0;
+  return status;
 }

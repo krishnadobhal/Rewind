@@ -6,8 +6,9 @@
 
 </div>
 
-> **Status: M0 done, M1 next.** Recording works end to end — you can run an agent under
-> `rewind record` and read the trace back. Replay does not exist yet.
+> **Status: record and replay both work.** An agent recorded under `rewind record`
+> replays from its cassettes with the model never called, reproducing the same final
+> state. Fork, sweep and bisect do not exist yet.
 
 ---
 
@@ -29,8 +30,17 @@ then re-execute against those recordings instead of against the world.
 ```bash
 rewind record --dir .rewind -- node your-agent.js
 rewind show <run_id>
-rewind show <run_id> --json
+rewind replay <run_id> -- node your-agent.js
 ```
+
+```
+$ rewind replay 01M1Y7SNTZ0T2FQHAT9752AQ39 -- node agent.js
+# replay of 01M1Y7SNTZ0T2FQHAT9752AQ39: match · exact 4
+```
+
+Four steps, every one answered from a cassette, and the final state hash identical to
+the recording. The model was never called — the test that proves it swaps in a model
+that throws if anything invokes it.
 
 ```
 $ rewind record --dir .rewind -- node agent.js
@@ -54,7 +64,9 @@ $ rewind show 01M1V6GF92DAPRSX6N0AFF68P7
 | ✅ File cassette store | A directory. No Postgres, no S3, no ingest API |
 | ✅ `withRewind` | Wraps any number of LangGraph models and tools; every call becomes a step |
 | ✅ Reference agent | `examples/deep-research-agent` — a real graph, runnable with no API key |
-| ❌ Replay, fork, sweep, bisect | Not built |
+| ✅ `rewind replay` | Re-runs the agent answering from cassettes. `--on-miss=strict` by default |
+| ✅ Match tiers | `exact` or `miss`, always counted and reported. `structural` lands with fork |
+| ❌ Fork, sweep, bisect | Not built |
 | ❌ Trace browser | Not built — a web viewer to browse recorded runs and step through them, the way you'd read a trace in LangSmith |
 | ❌ Server, Python SDK | Not built |
 
@@ -273,7 +285,7 @@ by fuzzy match is a hypothesis. The code must never let those two look alike.
 ```bash
 pnpm install
 pnpm build
-pnpm test        # 66 tests
+pnpm test        # 76 tests
 ```
 
 The tests are load-bearing here rather than decorative, because this project's failure

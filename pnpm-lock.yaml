@@ -23,6 +23,9 @@ importers:
       '@langchain/langgraph':
         specifier: ^1.0.0
         version: 1.4.14(@langchain/core@1.2.9)(zod@3.25.76)
+      '@rewind/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@rewind/sdk-js':
         specifier: workspace:*
         version: link:../../packages/sdk-js
@@ -62,6 +65,25 @@ importers:
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
+
+  packages/ui:
+    dependencies:
+      '@rewind/core':
+        specifier: workspace:*
+        version: link:../core
+      '@rewind/sdk-js':
+        specifier: workspace:*
+        version: link:../sdk-js
+    devDependencies:
+      '@langchain/core':
+        specifier: ^1.0.0
+        version: 1.2.9
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
+      deep-research-agent:
+        specifier: workspace:*
+        version: link:../../examples/deep-research-agent
 
 packages:
 
