@@ -10,7 +10,8 @@
     "./env": "./dist/env.js",
     "./ulid": "./dist/ulid.js",
     "./middleware": "./dist/middleware.js",
-    "./replay": "./dist/replay.js"
+    "./emitter": "./dist/emitter.js",
+    "./http": "./dist/http.js"
   },
   "dependencies": {
     "@rewind/core": "workspace:*"

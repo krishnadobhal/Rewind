@@ -68,3 +68,4 @@ export function listRuns(root: string): string[] {
 export function readCassette(root: string, hash: string): Cassette | null {
   return orNull(() => JSON.parse(readFileSync(join(root, 'cassettes', `${hash}.json`), 'utf8')) as Cassette);
 }
+

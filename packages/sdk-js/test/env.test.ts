@@ -17,8 +17,8 @@ function recording(): string {
 
 test('one process is one run, however many times withRewind is called', async () => {
   const dir = recording();
-  const model = { _llmType: () => 'p', model: 'planner', invoke: async () => ({ content: 'a' }) };
-  const router = { _llmType: () => 'p', model: 'router', invoke: async () => ({ content: 'b' }) };
+  const model = { _llmType: () => 'p', model: 'planner', invoke: async (_input: unknown, _config?: unknown) => ({ content: 'a' }) };
+  const router = { _llmType: () => 'p', model: 'router', invoke: async (_input: unknown, _config?: unknown) => ({ content: 'b' }) };
 
   // A second withRewind must join the run, not start a rival one — split steps
   // would leave two incomplete traces and nothing saying so.

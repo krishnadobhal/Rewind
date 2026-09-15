@@ -1,19 +1,31 @@
-/**
- * The handshake between `rewind record` and the agent it wraps. The CLI sets these;
- * the SDK reads them inside the user's process, where redaction has to happen.
- */
 import type { Run } from '@rewind/core/schema';
 import { DEFAULT_DIR, loadConfig } from './config.ts';
+import { bufferedStore } from './emitter.ts';
+import { httpStore } from './http.ts';
 import { Recorder } from './recorder.ts';
-import { Replayer } from './replay.ts';
-import { fileStore } from './store.ts';
+import { fileStore, type Store } from './store.ts';
 
 export const ENV_ENABLED = 'REWIND_ENABLED';
 export const ENV_DIR = 'REWIND_DIR';
 export const ENV_CONFIG = 'REWIND_CONFIG';
-/** Set by `rewind replay` to the run being replayed. */
-export const ENV_REPLAY = 'REWIND_REPLAY';
-export const ENV_ON_MISS = 'REWIND_ON_MISS';
+export const ENV_SERVER = 'REWIND_SERVER';
+export const ENV_TOKEN = 'REWIND_TOKEN';
+export const ENV_FILE = 'REWIND_ENV_FILE';
+
+// Loads a .env into process.env, once per process.
+
+let envFileLoaded = false;
+export function loadEnvFile(path?: string): void {
+  if (envFileLoaded) return;
+  envFileLoaded = true;
+  const file = path ?? process.env[ENV_FILE] ?? '.env';
+  if (file === '0') return; // explicitly opted out
+  try {
+    process.loadEnvFile(file);
+  } catch {
+    // No .env is the normal case for a library consumer, not an error.
+  }
+}
 
 /** Where the store lives for this process. */
 async function storeRoot(): Promise<string> {
@@ -21,30 +33,10 @@ async function storeRoot(): Promise<string> {
   return process.env[ENV_DIR] ?? config.dir ?? DEFAULT_DIR; // flag beats config
 }
 
-/**
- * Builds a Replayer when this process is replaying a run.
- *
- * Not memoized: unlike recording, replay throws on a bad run id rather than failing
- * open. A replay that cannot find its recording has not "degraded", it has no reason
- * to run at all.
- */
-export async function replayerFromEnv(): Promise<Replayer | null> {
-  const runId = process.env[ENV_REPLAY];
-  if (runId === undefined || runId === '') return null;
-  const onMiss = process.env[ENV_ON_MISS] === 'live' ? 'live' : 'strict'; // strict by default (I6)
-  return new Replayer({ root: await storeRoot(), runId, onMiss });
-}
-
-/**
- * The process's current run. Memoized because a new Recorder means a new ULID and a
- * new Run row — two `withRewind` calls would otherwise split one agent's steps across
- * two runs, each incomplete, with nothing reporting that it happened.
- */
 let current: Promise<Recorder | null> | null = null;
 
 /** Returns this process's recorder, opening it once. */
 export async function recorderFromEnv(run?: Partial<Run>): Promise<Recorder | null> {
-  // Null means un-wrapped, so `recorder?.record()` costs nothing.
   current ??= build(run); // first caller's metadata wins; later callers join the run
   return current;
 }
@@ -54,15 +46,37 @@ export function resetRecorder(): void {
   current = null;
 }
 
+function chooseStore(root: string): { store: Store; flush?: () => Promise<unknown> } {
+  const url = process.env[ENV_SERVER];
+  if (url === undefined || url === '') return { store: fileStore(root) };
+  const buffered = bufferedStore({
+    target: httpStore({ url, token: process.env[ENV_TOKEN] }),
+  });
+  return { store: buffered, flush: buffered.flush };
+}
+
 /** Opens the run: reads config, picks a store, starts recording. */
 async function build(run?: Partial<Run>): Promise<Recorder | null> {
+  loadEnvFile(); // before the check, so a .env can switch recording on
   if (process.env[ENV_ENABLED] !== '1') return null;
   try {
     const config = await loadConfig(process.env[ENV_CONFIG]); // may not exist
-    return new Recorder({ store: fileStore(await storeRoot()), redact: config.redact, run });
+    const { store, flush } = chooseStore(await storeRoot());
+
+    if (flush) flushOnExit(flush);
+    return new Recorder({ store, redact: config.redact, run });
   } catch (error) {
     // Fails open (I1): a broken config must not take the agent down.
     console.warn('[rewind] recorder disabled:', error);
     return null;
   }
+}
+
+function flushOnExit(flush: () => Promise<unknown>): void {
+  let done = false;
+  process.on('beforeExit', () => {
+    if (done) return; // beforeExit can fire more than once
+    done = true;
+    void flush().catch(() => {}); // failing to flush must not become an exception
+  });
 }
