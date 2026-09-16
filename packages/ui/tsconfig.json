@@ -1,21 +1,16 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": [
-      "node"
-    ],
     "noEmit": true,
-    "composite": false
+    "composite": false,
+    "declaration": false,
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true
   },
-  "include": [
-    "src"
-  ],
-  "references": [
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../sdk-js"
-    }
-  ]
+  "include": ["src", "vite.config.ts"]
 }
