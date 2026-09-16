@@ -1,0 +1,31 @@
+# Local dependencies for the server. Nothing in packages/ requires these to be up —
+# the file store and PGlite cover development and the test suite.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: rewind
+      POSTGRES_PASSWORD: rewind
+      POSTGRES_DB: rewind
+    ports: ['5432:5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rewind']
+      interval: 2s
+      retries: 15
+
+  # Speaks the S3 protocol, so one client covers a laptop and a deployment.
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: rewindadmin
+      MINIO_ROOT_PASSWORD: rewindadmin
+    ports: ['9000:9000', '9001:9001']
+    healthcheck:
+      # The liveness endpoint, so no second image is needed just to probe it.
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 2s
+      retries: 15
+
+# The bucket is created by scripts/smoke-s3.ts on first run — one SDK call beats a
+# second container whose only job is to exist for four seconds.

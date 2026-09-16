@@ -1,13 +1,28 @@
 {
   "name": "rewind",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@11.21.0",
   "scripts": {
-    "build": "tsc -b",
-    "test": "tsc -b && node --test \"packages/*/test/*.test.ts\" \"examples/*/test/*.test.ts\""
+    "build": "tsc -b && tsc -p tsconfig.check.json && pnpm -F @rewind/ui typecheck",
+    "test": "tsc -b && node --test \"packages/*/test/*.test.ts\" \"examples/*/test/*.test.ts\"",
+    "test:redaction": "node --test test/redaction/*.test.ts",
+    "smoke:pg": "node scripts/smoke-pg.ts",
+    "smoke:s3": "node scripts/smoke-s3.ts",
+    "typecheck": "tsc -p tsconfig.check.json && pnpm -F @rewind/ui typecheck",
+    "serve": "node scripts/serve.ts",
+    "seed": "node scripts/seed.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "@rewind/core": "workspace:*",
+    "@rewind/sdk-js": "workspace:*",
+    "deep-research-agent": "workspace:*",
+    "@langchain/core": "^1.0.0",
+    "@rewind/server": "workspace:*",
+    "pg": "^8.23.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@types/pg": "^8.11.0"
   }
 }
