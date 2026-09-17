@@ -9,11 +9,14 @@
  * ponytail: swap for `ChatAnthropic` when you want a genuine recording; nothing else
  * in the graph changes.
  */
-import { BaseChatModel, type BaseChatModelParams } from '@langchain/core/language_models/chat_models';
+import { BaseChatModel, type BaseChatModelCallOptions, type BaseChatModelParams } from '@langchain/core/language_models/chat_models';
 import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 import type { ChatResult } from '@langchain/core/outputs';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import { toJsonSchema } from '@langchain/core/utils/json_schema';
+
+/** What bindTools stashes on the binding, the way a provider model would. */
+export type ScriptedCallOptions = BaseChatModelCallOptions & { tools?: unknown[] };
 
 export type ScriptedChatModelFields = BaseChatModelParams & {
   /** Returned in order, one per call. */
@@ -21,7 +24,7 @@ export type ScriptedChatModelFields = BaseChatModelParams & {
   model?: string;
 };
 
-export class ScriptedChatModel extends BaseChatModel {
+export class ScriptedChatModel extends BaseChatModel<ScriptedCallOptions> {
   responses: AIMessage[];
   /** Part of the request identity, so it must look like a real id. */
   model: string;

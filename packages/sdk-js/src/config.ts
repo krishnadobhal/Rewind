@@ -1,6 +1,6 @@
 /**
- * One config surface: `rewind.config.ts`, overridden by flags.
- * There is deliberately no second one — no env-only knobs, no per-call options bag.
+ * One config surface: `rewind.config.ts`, overridden by the environment.
+ * Only what is read lives here — a knob nothing consumes is a promise the code breaks.
  */
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -8,15 +8,9 @@ import { pathToFileURL } from 'node:url';
 import type { RedactConfig } from './redact.ts';
 
 export type RewindConfig = {
-  project?: string;
-  /** Cassette store root. Local directory today; a server URL when one exists. */
+  /** Cassette store root. A directory; REWIND_SERVER switches the store instead. */
   dir?: string;
   redact?: RedactConfig;
-  tools?: { replaySafe?: string[] };
-  match?: { tier?: 'exact' | 'structural' | 'semantic'; semanticThreshold?: number };
-  onMiss?: 'strict' | 'live' | 'stub';
-  sampling?: number;
-  budgetUsd?: number;
 };
 
 /** Identity function giving config files type inference. */
