@@ -1,5 +1,5 @@
-import type { RewindRequest } from '@rewind/core/request';
-import type { Run, StepKind } from '@rewind/core/schema';
+import type { RewindRequest } from '@krishnadobhal/rewind-core/request';
+import type { Run, StepKind } from '@krishnadobhal/rewind-core/schema';
 import type { RedactConfig } from './redact.ts';
 import type { Store } from './store.ts';
 

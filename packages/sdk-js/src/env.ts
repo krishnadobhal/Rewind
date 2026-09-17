@@ -1,4 +1,4 @@
-import type { Run } from '@rewind/core/schema';
+import type { Run } from '@krishnadobhal/rewind-core/schema';
 import { DEFAULT_DIR, loadConfig } from './config.ts';
 import { bufferedStore } from './emitter.ts';
 import { httpStore } from './http.ts';

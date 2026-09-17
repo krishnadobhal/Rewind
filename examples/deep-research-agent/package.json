@@ -10,9 +10,9 @@
   "dependencies": {
     "@langchain/core": "^1.0.0",
     "@langchain/langgraph": "^1.0.0",
-    "@rewind/sdk-js": "workspace:*",
+    "@krishnadobhal/rewind-sdk-js": "workspace:*",
     "zod": "^3.25.0",
-    "@rewind/core": "workspace:*"
+    "@krishnadobhal/rewind-core": "workspace:*"
   },
   "exports": {
     "./graph": "./src/graph.ts",

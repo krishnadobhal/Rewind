@@ -10,8 +10,8 @@
  */
 import { CreateBucketCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { createHash } from 'node:crypto';
-import { s3Blobs } from '@rewind/server/s3';
-import { loadEnvFile } from '@rewind/sdk-js/env';
+import { s3Blobs } from '@krishnadobhal/rewind-server/s3';
+import { loadEnvFile } from '@krishnadobhal/rewind-sdk-js/env';
 
 loadEnvFile();
 

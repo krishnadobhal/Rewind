@@ -1,4 +1,4 @@
-import type { Cassette, Run, Step } from '@rewind/core/schema';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
 import type { AsyncStore, BatchWrite } from './emitter.ts';
 
 export type HttpStoreOptions = {

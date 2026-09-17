@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { reqHash } from '@rewind/core/hash';
-import type { ModelRequest } from '@rewind/core/request';
-import type { Step } from '@rewind/core/schema';
+import { reqHash } from '@krishnadobhal/rewind-core/hash';
+import type { ModelRequest } from '@krishnadobhal/rewind-core/request';
+import type { Step } from '@krishnadobhal/rewind-core/schema';
 import { Recorder } from '../src/recorder.ts';
 import { fileStore, listRuns, readCassette, readTrace, type Store } from '../src/store.ts';
 

@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import type { Cassette, Run, Step } from '@rewind/core/schema';
-import type { AsyncStore, BatchWrite } from '@rewind/sdk-js/emitter';
-import type { Trace } from '@rewind/sdk-js/store';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
+import type { AsyncStore, BatchWrite } from '@krishnadobhal/rewind-sdk-js/emitter';
+import type { Trace } from '@krishnadobhal/rewind-sdk-js/store';
 
 
 export type StepQuery = { hash?: string; node?: string; kind?: string; limit?: number };

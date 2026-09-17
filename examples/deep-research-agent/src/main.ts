@@ -9,7 +9,7 @@
  * the same file ships to production.
  */
 import { HumanMessage } from '@langchain/core/messages';
-import { stateHash } from '@rewind/core/hash';
+import { stateHash } from '@krishnadobhal/rewind-core/hash';
 import { buildGraph, routerScript, script, webSearch } from './graph.ts';
 import { ScriptedChatModel } from './model.ts';
 

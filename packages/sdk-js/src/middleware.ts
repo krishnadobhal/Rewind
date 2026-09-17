@@ -5,8 +5,8 @@
  * and a run end and nothing between. No `@langchain/*` dependency — this ships into
  * user processes under a 60 kB budget, and duck-typing `.invoke()` pins no version.
  */
-import type { RewindRequest } from '@rewind/core/request';
-import type { StepKind } from '@rewind/core/schema';
+import type { RewindRequest } from '@krishnadobhal/rewind-core/request';
+import type { StepKind } from '@krishnadobhal/rewind-core/schema';
 import { recorderFromEnv } from './env.ts';
 import type { Recorder } from './recorder.ts';
 

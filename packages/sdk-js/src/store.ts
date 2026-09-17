@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { Cassette, Run, Step } from '@rewind/core/schema';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
 
 export type Store = {
   putRun(run: Run): void;

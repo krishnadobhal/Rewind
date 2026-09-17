@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Cassette, Run, Step } from '@rewind/core/schema';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
 import { bufferedStore, type AsyncStore } from '../src/emitter.ts';
 import { Recorder } from '../src/recorder.ts';
 

@@ -9,8 +9,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Recorder } from '@rewind/sdk-js/recorder';
-import { fileStore } from '@rewind/sdk-js/store';
+import { Recorder } from '@krishnadobhal/rewind-sdk-js/recorder';
+import { fileStore } from '@krishnadobhal/rewind-sdk-js/store';
 import { fileIngestStore } from '../src/files.ts';
 
 /** Records one run of identical questions, returning its id. */

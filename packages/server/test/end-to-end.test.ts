@@ -9,8 +9,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
-import { bufferedStore, type AsyncStore } from '@rewind/sdk-js/emitter';
-import { Recorder } from '@rewind/sdk-js/recorder';
+import { bufferedStore, type AsyncStore } from '@krishnadobhal/rewind-sdk-js/emitter';
+import { Recorder } from '@krishnadobhal/rewind-sdk-js/recorder';
 import { fileBlobs } from '../src/blobs.ts';
 import { migrate, pgStore, type Sql } from '../src/pg.ts';
 

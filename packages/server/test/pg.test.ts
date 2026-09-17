@@ -9,7 +9,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
-import type { Cassette, Run, Step } from '@rewind/core/schema';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
 import { fileBlobs } from '../src/blobs.ts';
 import { migrate, pgStore, type Sql } from '../src/pg.ts';
 

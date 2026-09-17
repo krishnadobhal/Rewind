@@ -14,8 +14,8 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import { END, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { z } from 'zod';
-import { withRewind } from '@rewind/sdk-js/middleware';
-import type { Recorder } from '@rewind/sdk-js/recorder';
+import { withRewind } from '@krishnadobhal/rewind-sdk-js/middleware';
+import type { Recorder } from '@krishnadobhal/rewind-sdk-js/recorder';
 import { ScriptedChatModel } from './model.ts';
 
 /** A canned search tool; a real one would reach the network. */

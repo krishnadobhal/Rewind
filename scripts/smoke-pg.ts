@@ -14,9 +14,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
-import { fileBlobs } from '@rewind/server/blobs';
-import { migrate, pgStore, type Sql } from '@rewind/server/pg';
-import { loadEnvFile } from '@rewind/sdk-js/env';
+import { fileBlobs } from '@krishnadobhal/rewind-server/blobs';
+import { migrate, pgStore, type Sql } from '@krishnadobhal/rewind-server/pg';
+import { loadEnvFile } from '@krishnadobhal/rewind-sdk-js/env';
 
 loadEnvFile();
 

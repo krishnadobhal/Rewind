@@ -5,9 +5,9 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HumanMessage } from '@langchain/core/messages';
-import { stateHash } from '@rewind/core/hash';
-import { Recorder } from '@rewind/sdk-js/recorder';
-import { fileStore, readCassette, readTrace, type Trace } from '@rewind/sdk-js/store';
+import { stateHash } from '@krishnadobhal/rewind-core/hash';
+import { Recorder } from '@krishnadobhal/rewind-sdk-js/recorder';
+import { fileStore, readCassette, readTrace, type Trace } from '@krishnadobhal/rewind-sdk-js/store';
 import { buildGraph, routerScript, script, webSearch } from '../src/graph.ts';
 import { ScriptedChatModel } from '../src/model.ts';
 

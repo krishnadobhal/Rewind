@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { Cassette, Run, Step } from '@rewind/core/schema';
-import type { AsyncStore } from '@rewind/sdk-js/emitter';
-import type { Trace } from '@rewind/sdk-js/store';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
+import type { AsyncStore } from '@krishnadobhal/rewind-sdk-js/emitter';
+import type { Trace } from '@krishnadobhal/rewind-sdk-js/store';
 import type { BlobStore } from './blobs.ts';
 import type { StepHit, StepQuery } from './ingest.ts';
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Cassette, Step } from '@rewind/core/schema';
+import type { Cassette, Step } from '@krishnadobhal/rewind-core/schema';
 import { Recorder } from '../src/recorder.ts';
 import { withRewind } from '../src/middleware.ts';
 import type { Store } from '../src/store.ts';

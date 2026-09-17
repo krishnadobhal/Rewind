@@ -11,18 +11,18 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.0.0
         version: 3.1131.0
+      '@krishnadobhal/rewind-core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@krishnadobhal/rewind-sdk-js':
+        specifier: workspace:*
+        version: link:packages/sdk-js
+      '@krishnadobhal/rewind-server':
+        specifier: workspace:*
+        version: link:packages/server
       '@langchain/core':
         specifier: ^1.0.0
         version: 1.2.9
-      '@rewind/core':
-        specifier: workspace:*
-        version: link:packages/core
-      '@rewind/sdk-js':
-        specifier: workspace:*
-        version: link:packages/sdk-js
-      '@rewind/server':
-        specifier: workspace:*
-        version: link:packages/server
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
@@ -41,18 +41,18 @@ importers:
 
   examples/deep-research-agent:
     dependencies:
+      '@krishnadobhal/rewind-core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@krishnadobhal/rewind-sdk-js':
+        specifier: workspace:*
+        version: link:../../packages/sdk-js
       '@langchain/core':
         specifier: ^1.0.0
         version: 1.2.9
       '@langchain/langgraph':
         specifier: ^1.0.0
         version: 1.4.14(@langchain/core@1.2.9)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@3.25.76)
-      '@rewind/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@rewind/sdk-js':
-        specifier: workspace:*
-        version: link:../../packages/sdk-js
       zod:
         specifier: ^3.25.0
         version: 3.25.76
@@ -69,7 +69,7 @@ importers:
 
   packages/sdk-js:
     dependencies:
-      '@rewind/core':
+      '@krishnadobhal/rewind-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -82,10 +82,10 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1131.0
         version: 3.1131.0
-      '@rewind/core':
+      '@krishnadobhal/rewind-core':
         specifier: workspace:*
         version: link:../core
-      '@rewind/sdk-js':
+      '@krishnadobhal/rewind-sdk-js':
         specifier: workspace:*
         version: link:../sdk-js
       pg:

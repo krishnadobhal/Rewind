@@ -2,8 +2,8 @@
  * Runs inside the user's production agent and fails open : a store outage, a full
  * disk, a serialization bug — none of them throw into the graph. The run goes `partial`.
  */
-import { HASH_VERSION, reqHash } from '@rewind/core/hash';
-import type { Cassette, Run, Step } from '@rewind/core/schema';
+import { HASH_VERSION, reqHash } from '@krishnadobhal/rewind-core/hash';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
 import { redact } from './redact.ts';
 import type { Observation, RecorderOptions } from './types/recorder.ts';
 import type { RedactConfig } from './types/redact.ts';

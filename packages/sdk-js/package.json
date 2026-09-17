@@ -1,5 +1,5 @@
 {
-  "name": "@rewind/sdk-js",
+  "name": "@krishnadobhal/rewind-sdk-js",
   "version": "0.1.0",
   "description": "Record every boundary an LLM agent crosses: withRewind, the recorder, the redactor, and the stores.",
   "license": "Apache-2.0",
@@ -38,7 +38,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@rewind/core": "workspace:*"
+    "@krishnadobhal/rewind-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.13.3"

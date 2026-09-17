@@ -1,5 +1,5 @@
 
-import type { Cassette, Run, Step } from '@rewind/core/schema';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
 import type { Store } from './store.ts';
 
 /** One queued write, in the shape the wire carries it. */

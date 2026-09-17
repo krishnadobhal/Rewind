@@ -10,12 +10,12 @@
  */
 import { S3Client } from '@aws-sdk/client-s3';
 import pg from 'pg';
-import { fileBlobs, type BlobStore } from '@rewind/server/blobs';
-import { fileIngestStore } from '@rewind/server/files';
-import { createIngestServer, type IngestStore } from '@rewind/server/ingest';
-import { migrate, pgStore, type Sql } from '@rewind/server/pg';
-import { s3Blobs } from '@rewind/server/s3';
-import { loadEnvFile } from '@rewind/sdk-js/env';
+import { fileBlobs, type BlobStore } from '@krishnadobhal/rewind-server/blobs';
+import { fileIngestStore } from '@krishnadobhal/rewind-server/files';
+import { createIngestServer, type IngestStore } from '@krishnadobhal/rewind-server/ingest';
+import { migrate, pgStore, type Sql } from '@krishnadobhal/rewind-server/pg';
+import { s3Blobs } from '@krishnadobhal/rewind-server/s3';
+import { loadEnvFile } from '@krishnadobhal/rewind-sdk-js/env';
 
 loadEnvFile();
 

@@ -9,10 +9,10 @@
  * Agents repeat themselves, and the viewer has a pane about exactly that — three of
  * these runs ask the same three questions, and the fourth diverges on its last step.
  */
-import { bufferedStore } from '@rewind/sdk-js/emitter';
-import { httpStore } from '@rewind/sdk-js/http';
-import { Recorder } from '@rewind/sdk-js/recorder';
-import { fileStore, type Store } from '@rewind/sdk-js/store';
+import { bufferedStore } from '@krishnadobhal/rewind-sdk-js/emitter';
+import { httpStore } from '@krishnadobhal/rewind-sdk-js/http';
+import { Recorder } from '@krishnadobhal/rewind-sdk-js/recorder';
+import { fileStore, type Store } from '@krishnadobhal/rewind-sdk-js/store';
 
 const target = process.argv[2] ?? '.rewind';
 const overHttp = target.startsWith('http://') || target.startsWith('https://');

@@ -1,5 +1,5 @@
 {
-  "name": "@rewind/server",
+  "name": "@krishnadobhal/rewind-server",
   "version": "0.1.0",
   "description": "Ingest API, Postgres index and content-addressed blob stores for Rewind recordings.",
   "license": "Apache-2.0",
@@ -35,8 +35,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
-    "@rewind/core": "workspace:*",
-    "@rewind/sdk-js": "workspace:*",
+    "@krishnadobhal/rewind-core": "workspace:*",
+    "@krishnadobhal/rewind-sdk-js": "workspace:*",
     "pg": "^8.23.0"
   },
   "devDependencies": {

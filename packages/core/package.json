@@ -1,5 +1,5 @@
 {
-  "name": "@rewind/core",
+  "name": "@krishnadobhal/rewind-core",
   "version": "0.1.0",
   "description": "Content-addressed request hashing and the Run/Step/Cassette schema for Rewind.",
   "license": "Apache-2.0",

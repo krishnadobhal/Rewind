@@ -16,11 +16,11 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "7.0.2",
-    "@rewind/core": "workspace:*",
-    "@rewind/sdk-js": "workspace:*",
+    "@krishnadobhal/rewind-core": "workspace:*",
+    "@krishnadobhal/rewind-sdk-js": "workspace:*",
     "deep-research-agent": "workspace:*",
     "@langchain/core": "^1.0.0",
-    "@rewind/server": "workspace:*",
+    "@krishnadobhal/rewind-server": "workspace:*",
     "pg": "^8.23.0",
     "@aws-sdk/client-s3": "^3.0.0",
     "@types/pg": "^8.11.0"

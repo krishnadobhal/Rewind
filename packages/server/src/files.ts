@@ -1,5 +1,5 @@
-import type { Cassette, Run, Step } from '@rewind/core/schema';
-import { fileStore, listRuns, readCassette, readTrace, type Trace } from '@rewind/sdk-js/store';
+import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
+import { fileStore, listRuns, readCassette, readTrace, type Trace } from '@krishnadobhal/rewind-sdk-js/store';
 import type { IngestStore, StepHit, StepQuery } from './ingest.ts';
 
 /** An IngestStore backed by a cassette directory. */
