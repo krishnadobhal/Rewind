@@ -36,6 +36,17 @@ cat .rewind/runs/*/steps.jsonl | jq '{seq,node,kind,req_hash}'
 One environment variable, and `src/` is unchanged. Unset it and `withRewind` hands back
 the original model and tools, so an uninstrumented run costs nothing.
 
+Then look at what it recorded:
+
+```bash
+pnpm -F deep-research-agent view           # http://localhost:4100
+```
+
+`src/viewer.ts` is the whole thing: `fileIngestStore` over this example's own `.rewind`
+directory, with the viewer's built assets mounted into the same server. No database, no
+second process, no proxy. It answers the same `/v1` routes a Postgres-backed deployment
+does, which is why the page cannot tell the two apart.
+
 ## Why the model is scripted
 
 `ScriptedChatModel` returns a fixed list of `AIMessage`s, one per call. It is a real
@@ -103,6 +114,7 @@ this reason.
 | `src/model.ts` | `ScriptedChatModel` — a real `BaseChatModel` answering from a list |
 | `src/graph.ts` | the tool, the scripts, and `buildGraph` — where `withRewind` goes |
 | `src/main.ts` | entry point; picks the models, runs the graph, prints the transcript |
+| `src/viewer.ts` | serves `.rewind` over `/v1` with the viewer mounted — `pnpm … view` |
 | `test/agent.test.ts` | records, replays, and asserts the trace |
 
 `src/graph.ts` is exported, so `test/` and the repo's scripts import the same graph the

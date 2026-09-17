@@ -5,14 +5,17 @@
   "type": "module",
   "scripts": {
     "start": "node src/main.ts",
-    "start:multi": "node src/main.ts --multi-model"
+    "start:multi": "node src/main.ts --multi-model",
+    "view": "node src/viewer.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.0.0",
     "@langchain/langgraph": "^1.0.0",
     "@krishnadobhal/rewind-sdk-js": "workspace:*",
     "zod": "^3.25.0",
-    "@krishnadobhal/rewind-core": "workspace:*"
+    "@krishnadobhal/rewind-core": "workspace:*",
+    "@krishnadobhal/rewind-server": "workspace:*",
+    "@krishnadobhal/rewind-ui": "workspace:*"
   },
   "exports": {
     "./graph": "./src/graph.ts",
