@@ -1,0 +1,100 @@
+/*
+ * Operate-mode surface: someone is debugging a trace, usually at night, usually with an
+ * editor open beside this. Dark is the use scene, not a category default.
+ *
+ * Two voices. Sans carries the chrome — labels, counts, headings, anything the app says
+ * about itself. Mono carries data — ids, hashes, JSON, anything the agent produced.
+ * The split is the whole typographic idea: if it came out of a run, it is monospace.
+ */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, lifted rather than outlined. Each step is a real elevation. */
+  --bg: #0b0d10;
+  --panel: #101318;
+  --raised: #161a21;
+  --hover: #1b2028;
+  --line: #222832;
+  --line-strong: #2c3440;
+
+  /* Ink. Secondary is tinted from the surface hue, never neutral grey. */
+  --ink: #e8ecf3;
+  --ink-dim: #9aa5b6;
+  --ink-faint: #6b7688;
+
+  /* Meaning, not decoration. Each of these says one thing and nothing else. */
+  --accent: #6e8cff;
+  --accent-soft: #6e8cff1f;
+  --ok: #56d9a3;
+  --ok-soft: #56d9a31f;
+  --warn: #e8b464;
+  --warn-soft: #e8b4641f;
+  --bad: #ff7a90;
+  --bad-soft: #ff7a901f;
+
+  --sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Three steps for chrome, ~1.25 apart. Data sits at --fs-code and does not move. */
+  --fs-label: 11px;
+  --fs-base: 13px;
+  --fs-lg: 16px;
+  --fs-code: 12.5px;
+
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 12px;
+
+  /* Offset and blur, never a zero-offset halo. */
+  --shadow: 0 1px 2px #0006, 0 8px 24px -12px #0009;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 var(--fs-base)/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The surfaces we did not draw still belong to the design. */
+::selection { background: var(--accent-soft); color: var(--ink); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: #3a4452; background-clip: content-box; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* Digits that line up in a column of ids, counts and durations. */
+.mono, code, pre {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'zero' 1;
+}
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

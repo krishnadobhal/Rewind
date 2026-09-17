@@ -49,7 +49,7 @@ test('I6: a replayed call never reaches the model', async () => {
   const tripwire = {
     model: 'fake-1',
     _llmType: () => 'fake',
-    async invoke(): Promise<never> {
+    async invoke(_input: unknown, _config?: unknown): Promise<never> {
       throw new Error('the network was touched during replay');
     },
   };
@@ -112,13 +112,6 @@ test('mixing hash versions is refused by name, not by missing', async () => {
   // a total divergence. Say so instead (I2).
   store.putRun({ ...trace.run, hash_version: 2 });
   assert.throws(() => new Replayer({ root, runId }), /HASH_VERSION 2, this build is 3/);
-});
-
-test('the verdict compares final state, and says so when there is none', async () => {
-  const { root, runId } = await recorded();
-  const replayer = new Replayer({ root, runId });
-  assert.equal(replayer.verdict('sha256:final'), 'match');
-  assert.equal(replayer.verdict('sha256:different'), 'mismatch');
 });
 
 test('a recorded response is revived before the graph sees it', async () => {

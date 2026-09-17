@@ -26,9 +26,9 @@ type Session = { recorder: Recorder | null; replayer: Replayer | null; revive: (
 export type WithRewindOptions<M, T> = {
   model?: M;
   tools?: T[];
-  /** Supplied by tests; otherwise from the `rewind record` env handshake. */
+  /** Supplied by tests; otherwise from REWIND_ENABLED and friends. */
   recorder?: Recorder | null;
-  /** Supplied by tests; otherwise from the `rewind replay` env handshake. */
+  /** Supplied by tests; otherwise from REWIND_REPLAY. */
   replayer?: Replayer | null;
   /**
    * Turns a recorded response back into the object the graph expects.

@@ -6,7 +6,7 @@
 export const STEP_KINDS = ['model', 'tool', 'clock', 'rng', 'human', 'env'] as const;
 export type StepKind = (typeof STEP_KINDS)[number];
 
-export const MATCH_TIERS = ['exact', 'structural', 'semantic', 'miss', 'recorded'] as const;
+export const MATCH_TIERS = ['exact', 'miss', 'recorded'] as const;
 export type MatchTier = (typeof MATCH_TIERS)[number];
 
 export type RunStatus = 'complete' | 'partial' | 'error';

@@ -1,0 +1,106 @@
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+.pane:last-child { border-right: 0; background: var(--bg); }
+
+.paneHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 16px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.paneHead h2 {
+  margin: 0;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-label);
+  color: var(--ink-faint);
+}
+
+.paneBody { overflow-y: auto; flex: 1; min-height: 0; }
+
+/* Generous separation above, tight below — the icon belongs to the title. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 40px 20px 20px;
+  color: var(--ink-faint);
+}
+.empty svg { margin-bottom: 6px; opacity: 0.7; }
+.failedIcon { color: var(--warn); opacity: 1 !important; }
+.emptyTitle { margin: 0; color: var(--ink-dim); font-size: var(--fs-base); }
+.emptyHint { margin: 0; font-size: var(--fs-label); line-height: 1.6; max-width: 34ch; }
+.emptyHint code {
+  font-size: 0.95em;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--raised);
+  color: var(--ink-dim);
+}
+
+/* Shaped like the rows it replaces, so arrival is a fade and not a jump. */
+.skeleton { padding: 4px 0; }
+.skelRow {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+  opacity: 0;
+  animation: fade 0.5s var(--ease) forwards;
+}
+.skelBar, .skelBarDim {
+  display: block;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--raised);
+}
+.skelBarDim { height: 7px; margin-top: 8px; background: #141821; }
+@keyframes fade { to { opacity: 1; } }
+
+.tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px 1px 6px;
+  border-radius: 99px;
+  font-size: var(--fs-label);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.dot { width: 5px; height: 5px; border-radius: 99px; background: currentColor; }
+.tierCount {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  margin-left: 1px;
+}
+
+/* One meaning per colour. Red appears only for a miss. */
+.exact, .recorded { color: var(--ok); background: var(--ok-soft); }
+.miss { color: var(--bad); background: var(--bad-soft); }
+
+.status {
+  font-size: var(--fs-label);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.bad { color: var(--bad); }

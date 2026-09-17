@@ -7,11 +7,41 @@ import type { RedactConfig, RedactResult } from './types/redact.ts';
 
 export type { RedactConfig, RedactResult } from './types/redact.ts';
 
-const PRESET: [name: string, pattern: RegExp][] = [
+/** A matcher may refuse a match it caught, when the shape alone is not enough. */
+type Matcher = [name: string, pattern: RegExp, accept?: (match: string) => boolean];
+
+/** Issuer prefixes: Visa, Mastercard, Amex, Discover, UnionPay, JCB. */
+const CARD_PREFIX = /^(?:4|5[1-5]|2[2-7]|3[47]|6(?:011|5)|62|35)/;
+
+/**
+ * Is this digit run actually a card number?
+ *
+ * A 13–19 digit run is card-*shaped*; a PRNG seed or an order number is too. Luhn alone
+ * lets one in ten through, so the issuer prefix has to agree as well. Over-redacting
+ * corrupts data the agent needs while protecting nothing.
+ */
+function card(digits: string): boolean {
+  const only = digits.replace(/\D/g, '');
+  if (only.length < 13 || !CARD_PREFIX.test(only)) return false;
+  let sum = 0;
+  for (let i = 0; i < only.length; i++) {
+    // Double every second digit from the right; 10 or more folds to its digit sum.
+    let d = Number(only[only.length - 1 - i]);
+    if (i % 2 === 1) d = d * 2 > 9 ? d * 2 - 9 : d * 2;
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+const PRESET: Matcher[] = [
   ['email', /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g],
-  ['token', /\b(?:Bearer\s+[\w.\-~+/]+=*|sk-[A-Za-z0-9_-]{16,}|xox[baprs]-[\w-]{10,})/g],
-  ['card', /\b(?:\d[ -]?){13,19}\b/g],
-  ['phone', /(?:\+\d{1,3}[ -]?)?(?:\(\d{3}\)|\d{3})[ -]\d{3}[ -]\d{4}\b/g],
+  ['token', /\b(?:Bearer\s+[\w.\-~+/]+=*|(?:sk|pk|rk)[-_](?:live|test)?[-_]?[A-Za-z0-9]{12,}|xox[baprs]-[\w-]{10,}|AKIA[0-9A-Z]{16}|eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,})/g],
+  ['card', /\b(?:\d[ -]?){13,19}\b/g, card],
+  // Numbers are not all +1 555, so this takes grouped digits with an optional country
+  // code — covering UK `020 7946 0958` and most of Europe. The boundaries are the load
+  // -bearing part: without them it eats the digit groups inside a UUID, which corrupts
+  // ids the agent needs while protecting nothing.
+  ['phone', /(?<![\w-])(?:\+\d{1,3}[ .-]?)?(?:\(\d{2,4}\)|\d{2,4})[ .-]\d{3,4}[ .-]?\d{3,4}(?![\w-])/g],
 ];
 
 class Tokens {
@@ -34,11 +64,14 @@ class Tokens {
 }
 
 /** Runs every matcher over one string, in order. */
-function redactString(input: string, matchers: [string, RegExp][], tokens: Tokens): string {
+function redactString(input: string, matchers: Matcher[], tokens: Tokens): string {
   let out = input; // rewritten once per matcher
-  for (const [name, pattern] of matchers) {
+  for (const [name, pattern, accept] of matchers) {
     // Fresh RegExp per call: a shared /g pattern carries lastIndex between strings.
-    out = out.replace(new RegExp(pattern.source, pattern.flags), (m) => tokens.for(m, name));
+    out = out.replace(new RegExp(pattern.source, pattern.flags), (m) =>
+      // A refused match is left exactly as it was found.
+      accept && !accept(m) ? m : tokens.for(m, name),
+    );
   }
   return out;
 }
@@ -49,7 +82,7 @@ function redactString(input: string, matchers: [string, RegExp][], tokens: Token
  * any pattern gets a chance to run against it.
  */
 /** Recurses the value, redacting strings and named fields. */
-function walk(value: unknown, path: string, ctx: { matchers: [string, RegExp][]; fields: Set<string>; tokens: Tokens }): unknown {
+function walk(value: unknown, path: string, ctx: { matchers: Matcher[]; fields: Set<string>; tokens: Tokens }): unknown {
   if (ctx.fields.has(path)) { // whole value goes, whatever type it is
     return value === undefined ? value : ctx.tokens.for(`${path}:${JSON.stringify(value)}`, 'field');
   }
@@ -68,7 +101,7 @@ function walk(value: unknown, path: string, ctx: { matchers: [string, RegExp][];
 /** Assemble the matcher list, then walk once. Returns a new tree; the input is untouched. */
 /** Redacts a value, returning it with a token map. */
 export function redact(value: unknown, config: RedactConfig = {}): RedactResult {
-  const matchers: [string, RegExp][] = config.preset === 'none' ? [] : [...PRESET]; // copy, PRESET is shared
+  const matchers: Matcher[] = config.preset === 'none' ? [] : [...PRESET]; // copy, PRESET is shared
   (config.custom ?? []).forEach((re, i) => matchers.push([`custom:${i}`, re]));
   const tokens = new Tokens(); // one map per call, numbering restarts
   const redacted = walk(value, '', { matchers, fields: new Set(config.fields ?? []), tokens });

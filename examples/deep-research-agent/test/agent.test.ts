@@ -100,9 +100,8 @@ test('the reference agent replays byte-identically with no model call', async ()
   const { graph } = await buildGraph({ model: tripwire, tools: [webSearch], replayer });
   const state = await graph.invoke({ messages: [new HumanMessage('how do I replay an agent?')] });
 
-  assert.equal(replayer.verdict(stateHash(state)), 'match', 'same final state, no network');
-  assert.equal(recordedHash, stateHash(state));
-  assert.deepEqual(replayer.tiers, { exact: 3, structural: 0, semantic: 0, miss: 0, recorded: 0 });
+  assert.equal(recordedHash, stateHash(state), 'same final state, no network');
+  assert.deepEqual(replayer.tiers, { exact: 3, miss: 0, recorded: 0 });
   assert.equal(replayer.divergenceSeq, null);
 });
 

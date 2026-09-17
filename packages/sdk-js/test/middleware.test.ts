@@ -33,7 +33,7 @@ function fakeModel(onInvoke?: () => never) {
 const searchTool = {
   name: 'web_search',
   description: 'Search the web.',
-  async invoke(input: { args?: unknown }) {
+  async invoke(input: { id?: string; name?: string; args?: unknown }, _config?: unknown) {
     return { hits: 1, echo: input };
   },
 };
@@ -153,7 +153,7 @@ test('identity survives bindTools, which returns a binding not a model', async (
 
   // withConfig/bindTools wrap the model in a RunnableBinding. Reading identity off
   // the binding gives model_id "unknown" and makes every model look alike.
-  const binding = { bound: fakeModel(), kwargs: {}, config: {}, invoke: async () => ({ content: 'x' }) };
+  const binding = { bound: fakeModel(), kwargs: {}, config: {}, invoke: async (_input: unknown, _config?: unknown) => ({ content: 'x' }) };
   const wrapped = model.bindTools([{ name: 't' }]);
   assert.ok(wrapped, 'bindTools returns something wrapped');
 

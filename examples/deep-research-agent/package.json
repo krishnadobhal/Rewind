@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/main.ts",
-    "start:multi": "node src/main.ts --multi-model"
+    "start": "node --env-file-if-exists=.env src/main.ts",
+    "start:multi": "node --env-file-if-exists=.env src/main.ts --multi-model"
   },
   "dependencies": {
     "@langchain/core": "^1.0.0",

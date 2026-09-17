@@ -1,22 +1,15 @@
-/**
- * Replay: answer a boundary crossing from its cassette instead of the world.
- *
- * The lookup is the whole idea. Recompute the request's canonical hash, and either the
- * cassette exists — this is the same call, here is what happened — or it does not, and
- * the run has genuinely diverged. There is no third answer, and no approximating (I5).
- */
 import { HASH_VERSION, reqHash } from '@rewind/core/hash';
 import type { RewindRequest } from '@rewind/core/request';
 import type { MatchTier, Step, StepKind } from '@rewind/core/schema';
 import { readCassette, readTrace, type Trace } from './store.ts';
 
-/** What to do when no cassette matches (docs/CLI.md §5). */
+/** What to do when no cassette matches (docs/HASHING.md §5). */
 export type OnMiss = 'strict' | 'live';
 
 /** A hit carries the recorded response; a miss carries nothing. */
 export type Resolution = { hit: true; response: unknown; tier: MatchTier } | { hit: false };
 
-/** Thrown under `--on-miss=strict`, naming the hash that did not resolve. */
+/** Thrown under strict miss policy, naming the hash that did not resolve. */
 export class MissError extends Error {
   node: string;
   seq: number;
@@ -38,10 +31,10 @@ export class Replayer {
   readonly source: Trace;
   readonly onMiss: OnMiss;
   /** Every tier is counted, including the zeroes — never inferred, never omitted (I3). */
-  readonly tiers: Record<MatchTier, number> = { exact: 0, structural: 0, semantic: 0, miss: 0, recorded: 0 };
+  readonly tiers: Record<MatchTier, number> = { exact: 0, miss: 0, recorded: 0 };
   /** The trace this replay produced, which is what gets compared to `source`. */
   readonly steps: Step[] = [];
-  /** First step that missed; null while the replay is still faithful. */
+  /** First step that stopped matching the recording; null while it still does. */
   divergenceSeq: number | null = null;
 
   #root: string;
@@ -68,8 +61,6 @@ export class Replayer {
     const cassette = readCassette(this.#root, hash);
 
     if (cassette === null) {
-      // The first miss is where the recording stopped being authoritative.
-      this.divergenceSeq ??= seq;
       this.#step(seq, node, kind, hash, 'miss', null);
       return { hit: false };
     }
@@ -82,15 +73,32 @@ export class Replayer {
     return this.tiers.miss === 0;
   }
 
-  /** Compares a replayed final state against the recording. */
-  verdict(finalStateHash: string): 'match' | 'mismatch' | 'unknown' {
-    const recorded = this.source.run.outcome?.final_state_hash;
-    if (typeof recorded !== 'string') return 'unknown'; // the recording never stored one
-    return recorded === finalStateHash ? 'match' : 'mismatch';
+
+  get reproduced(): boolean {
+    return this.divergenceSeq === null && this.steps.length === this.source.steps.length;
+  }
+
+  settle(): void {
+    // Exit 2 is "gate failed" per docs/RECORDING.md.
+    if (!this.reproduced) process.exitCode = 2;
+  }
+
+  /** Settles once, whenever the process ends, however it ends. */
+  onExit(): void {
+    let done = false;
+    const once = () => {
+      if (done) return;
+      done = true;
+      this.settle();
+    };
+    process.on('beforeExit', once);
+    process.on('exit', once);
   }
 
   #step(seq: number, node: string, kind: StepKind, hash: string, tier: MatchTier, ref: string | null): void {
     this.tiers[tier]++;
+
+    if (tier === 'miss' || this.source.steps[seq]?.req_hash !== hash) this.divergenceSeq ??= seq;
     this.steps.push({
       run_id: this.source.run.run_id,
       seq,

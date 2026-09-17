@@ -69,7 +69,7 @@ export type Binding = {
  * Instruments the models and tools, then wires them into a compiled graph.
  *
  * `withRewind` lives here, at the build step, because this is the one place that
- * holds every boundary object at once. Outside `rewind record` it hands them all
+ * holds every boundary object at once. Unrecorded it hands them all
  * back untouched, so this costs nothing in production.
  */
 export async function buildGraph(binding: Binding) {

@@ -6,9 +6,9 @@
 
 </div>
 
-> **Status: record and replay both work.** An agent recorded under `rewind record`
-> replays from its cassettes with the model never called, reproducing the same final
-> state. Fork, sweep and bisect do not exist yet.
+> **Status: record and replay both work.** A recorded agent replays from its cassettes
+> with the model never called, reproducing the same final state. There is a viewer for
+> reading those runs, and an ingest server that puts them in Postgres.
 
 ---
 
@@ -28,56 +28,42 @@ then re-execute against those recordings instead of against the world.
 ## What works today
 
 ```bash
-rewind record --dir .rewind -- node your-agent.js
-rewind show <run_id>
-rewind replay <run_id> -- node your-agent.js
+REWIND_ENABLED=1 node your-agent.js                  # record
+REWIND_REPLAY=<run_id> node your-agent.js            # replay, exit 2 if it diverged
+pnpm serve && pnpm -F @rewind/ui dev                 # read what happened
 ```
 
 ```
-$ rewind replay 01M1Y7SNTZ0T2FQHAT9752AQ39 -- node agent.js
-# replay of 01M1Y7SNTZ0T2FQHAT9752AQ39: match · exact 4
+$ REWIND_REPLAY=01M1Y7SNTZ0T2FQHAT9752AQ39 node agent.js
+$ echo $?
+0
 ```
 
 Four steps, every one answered from a cassette, and the final state hash identical to
 the recording. The model was never called — the test that proves it swaps in a model
 that throws if anything invokes it.
 
-```
-$ rewind record --dir .rewind -- node agent.js
-rewind: recorded 01M1V6GF92DAPRSX6N0AFF68P7
-
-$ rewind show 01M1V6GF92DAPRSX6N0AFF68P7
-01M1V6GF92DAPRSX6N0AFF68P7  complete  2 steps  7 tokens  $0.0000  42ms
-
-  seq  node                 kind    tier      req_hash          latency
-    0  plan                 model   recorded  4f862f65e4d389b6      12ms
-    1  search               tool    recorded  f73ac9e536935131      30ms
-```
-
 | | |
 |---|---|
-| ✅ `rewind record` | Runs your agent with recording switched on |
-| ✅ `rewind show` | Prints a trace as a table or as `{run, steps}` JSON |
 | ✅ Canonical request hashing | Decides whether two calls are *the same call*. `HASH_VERSION 3` |
 | ✅ Recorder | A Step + a content-addressed Cassette per boundary crossing, and it never throws into your graph |
 | ✅ Write-time redaction | Emails, phones, cards, bearer tokens — stripped before anything is written |
-| ✅ File cassette store | A directory. No Postgres, no S3, no ingest API |
 | ✅ `withRewind` | Wraps any number of LangGraph models and tools; every call becomes a step |
+| ✅ Replay | Re-runs the agent answering from cassettes. `strict` on a miss by default |
+| ✅ Match tiers | `exact` or `miss`, always counted and reported |
+| ✅ Cassette stores | A directory by default; Postgres + S3/MinIO behind an ingest server |
+| ✅ Ingest server | Batched HTTP → Postgres → content-addressed blobs, with bearer auth |
+| ✅ Trace browser | Browse runs, step through a timeline, read request beside response, compare two runs |
 | ✅ Reference agent | `examples/deep-research-agent` — a real graph, runnable with no API key |
-| ✅ `rewind replay` | Re-runs the agent answering from cassettes. `--on-miss=strict` by default |
-| ✅ Match tiers | `exact` or `miss`, always counted and reported. `structural` lands with fork |
-| ❌ Fork, sweep, bisect | Not built |
-| ❌ Trace browser | Not built — a web viewer to browse recorded runs and step through them, the way you'd read a trace in LangSmith |
-| ❌ Server, Python SDK | Not built |
 
 ## Wiring it into an agent
 
-`rewind record` does not intercept anything. It can't — redaction and hashing have to
-happen *inside* your process, because a wrapper watching from outside only sees bytes on
-a socket, and by then the PII has already left the building.
+Rewind intercepts nothing from outside. It can't — redaction and hashing have to happen
+*inside* your process, because a wrapper watching from outside only sees bytes on a
+socket, and by then the PII has already left the building.
 
-So `record` sets three environment variables and gets out of the way. Instrument where
-you build the graph — that is the one place holding every model and tool at once:
+So an environment variable turns it on, and you instrument where you build the graph —
+that is the one place holding every model and tool at once:
 
 ```ts
 import { withRewind } from '@rewind/sdk-js/middleware';
@@ -118,22 +104,208 @@ two models is two cassettes, not one overwriting the other.
 once joins the existing run rather than opening a rival one — six models still means one
 `run_id`, one `steps.jsonl`, and `seq` ordering them.
 
-Outside a `rewind record` wrapper, `withRewind` hands back your model and tools
-untouched, `wrap` is the identity function, and `recorder` is `null` — the same code
-ships to production unchanged. If you are not on LangGraph, `recorderFromEnv()` gives you
-the recorder directly and you call
+With `REWIND_ENABLED` unset, `withRewind` hands back your model and tools untouched,
+`wrap` is the identity function, and `recorder` is `null` — the same code ships to
+production unchanged. If you are not on LangGraph, `recorderFromEnv()` gives you the
+recorder directly and you call
 `recorder?.record({ node, kind, request, response, latency_ms })` yourself.
 
-Configuration is one file, `rewind.config.ts`, overridden by CLI flags:
+## Adding Rewind to another project
+
+```bash
+pnpm add @rewind/sdk-js
+```
+
+> Not published yet. Inside this workspace use `workspace:*`; from another repo,
+> `pnpm link` the package or install from a git ref.
+
+Instrument `buildGraph` as above, then run your agent with recording on:
+
+```bash
+REWIND_ENABLED=1 node agent.js                  # writes .rewind/
+REWIND_REPLAY=<run_id> node agent.js            # answers from cassettes, exits 2 if it diverged
+```
+
+### The environment is the interface
+
+There is no CLI to wrap your command. These variables are the whole surface:
+
+| Variable | Effect |
+|---|---|
+| `REWIND_ENABLED` | `1` turns recording on. Absent means `withRewind` is a no-op |
+| `REWIND_REPLAY` | The run id to replay. Its presence selects replay over recording |
+| `REWIND_DIR` | Path to the cassette store. Overrides `dir` in the config file |
+| `REWIND_ON_MISS` | `strict` (default) or `live` |
+| `REWIND_CONFIG` | Path to `rewind.config.ts` |
+| `REWIND_SERVER` | Ingest URL. Its presence swaps the directory for batched HTTP |
+| `REWIND_TOKEN` | Bearer token for that server |
+
+One consequence worth knowing: `REWIND_ENABLED=1` in a shell profile would record every
+Node process you start. Set it on the command that needs it.
+
+### The one file you do write
+
+`rewind.config.ts` in your project root, and it is optional:
 
 ```ts
 import { defineConfig } from '@rewind/sdk-js/config';
 
 export default defineConfig({
-  dir: '.rewind',
-  redact: { preset: 'default', fields: ['headers.authorization'] },
+  dir: '.rewind',                 // where cassettes live
+  redact: {
+    preset: 'default',            // emails, phones, cards, tokens, AWS keys, JWTs
+    custom: [/acct_[a-z0-9]{16}/gi],
+    fields: ['headers.authorization', 'args.apiKey'],
+  },
 });
 ```
+
+Add `.rewind/` to your `.gitignore`. A cassette holds whatever your agent saw, so
+treat that directory as a production data store, not as test fixtures.
+
+## Recording to Postgres and S3
+
+By default everything lands in `.rewind/` next to your agent. That is right while the
+agent and the viewer share a disk. When they don't — the agent runs on a server and you
+look from your laptop — point it at an ingest server instead.
+
+**Your agent never talks to Postgres.** It POSTs batches to a server that does. Two
+reasons, and the second is the one that matters: `sdk-js` ships inside your process
+under a 60 kB budget (`pg` alone is 145 kB, the AWS SDK 4.2 MB), and a recorder holding
+database credentials inside a customer-facing process is a much worse thing to have
+than one that can POST some JSON.
+
+```
+your agent                                    your infrastructure
+──────────                                    ───────────────────
+withRewind → emitter ──── HTTP ────→ ingest server → Postgres
+             (batches,                             → S3 / MinIO
+              never blocks)
+```
+
+### 1. Bring up the backends
+
+```bash
+docker compose up -d minio     # or point at real S3
+```
+
+Postgres can be anything — Neon, RDS, a container. `docker-compose.yml` has one if you
+want it local.
+
+### 2. Configure the server
+
+Start from the tracked template — it holds every name, and no values:
+
+```bash
+cp .env.example .env
+```
+
+`.env` is gitignored (`.gitignore` covers `.env` and `.env.*`, with `.env.example`
+excepted), so a connection string put there cannot be committed by accident. Nothing
+auto-loads it: the scripts pass `--env-file=.env` explicitly, which is Node's built-in
+flag and needs no `dotenv`.
+
+Fill it in:
+
+```bash
+DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+S3_ENDPOINT=http://127.0.0.1:9000     # omit entirely to keep blobs on local disk
+S3_BUCKET=rewind
+AWS_ACCESS_KEY_ID=…
+AWS_SECRET_ACCESS_KEY=…
+AWS_REGION=us-east-1
+REWIND_TOKEN=<generate one, see below>  # optional; when set, every write must carry it
+```
+
+| Variable | Read by | Effect |
+|---|---|---|
+| `DATABASE_URL` | the server | Postgres for runs, steps and the cassette catalogue |
+| `S3_ENDPOINT` | the server | Bucket for cassette bodies. Unset means local files |
+| `S3_BUCKET`, `AWS_*` | the server | Standard S3 credentials; MinIO uses the same ones |
+| `REWIND_TOKEN` | both | Bearer token. **Unset means the server accepts anything**  |
+| `REWIND_PORT` | the server | Defaults to 4000 |
+| `REWIND_SCHEMA` | the server | Postgres schema, defaults to `public` |
+
+**About `REWIND_TOKEN`.** It is a shared bearer token, nothing cleverer — the server
+compares `Authorization: Bearer <token>` against the one string it was started with.
+Generate one rather than inventing it:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+Leave it unset and the server takes writes from anything that can reach the port. That
+endpoint accepts runs into your trace store and serves recordings back, and recordings
+hold whatever your agent saw — so unset is only reasonable on a loopback address.
+
+What it is not: there is no rotation, no per-agent identity, and no rate limiting. It is
+enough for a server on a private network behind something that already does auth. It is
+not enough to put on the public internet.
+
+### 3. Run the server
+
+```bash
+pnpm serve
+# rewind ingest  http://localhost:4000  postgres public · blobs s3 http://127.0.0.1:9000/rewind
+```
+
+It applies the migration on boot, so there is no separate migrate step. Embedding it in
+a service you already run is four lines:
+
+```ts
+import { createIngestServer } from '@rewind/server/ingest';
+import { migrate, pgStore } from '@rewind/server/pg';
+import { s3Blobs } from '@rewind/server/s3';
+
+await migrate(sql);
+createIngestServer({ store: pgStore(sql, s3Blobs({ client, bucket })), token }).listen(4000);
+```
+
+### 4. Point the agent at it
+
+```bash
+REWIND_ENABLED=1 REWIND_SERVER=http://localhost:4000 REWIND_TOKEN="$REWIND_TOKEN" node agent.js
+```
+
+That is the only change. Your agent code is identical — the SDK reads `REWIND_SERVER`
+and swaps the directory for a batching HTTP client, so a deployment can export it once.
+
+### What happens when the server is down
+
+The agent keeps running. That is invariant I1 and it does not bend for a network. Writes
+queue in memory, the queue is bounded, and what will not fit is dropped and counted —
+bounded memory beats complete telemetry. The run is marked `partial`, and a partial run
+is never used as a replay source. What Rewind will not do is finish quietly and let you
+believe the recording is complete.
+
+One gap worth knowing: the queue is flushed on `beforeExit`, which does not fire on
+`process.exit()` or an uncaught throw. Writes still queued at that moment are lost, and
+reported rather than hidden.
+
+### Blobs on disk instead of S3
+
+Leave `S3_ENDPOINT` unset. Postgres holds the index, bodies go to `REWIND_BLOB_DIR`
+(default `.rewind-blobs`), content-addressed with the same layout as the bucket — so a
+corpus moves between the two without rewriting a ref. That is the right shape for a
+single-node self-host, and it is what keeps `bench/corpus/` committable to git.
+
+## Reading what happened
+
+```bash
+pnpm serve                     # the ingest server, on :4000
+pnpm -F @rewind/ui dev         # the viewer, on :4100
+```
+
+Three panes: pick a run, walk its steps, read the request beside the response. A step
+that missed says so rather than showing you a plausible substitute. Pick a second run and
+the middle pane becomes a comparison — two recordings, one deliberate change, diffed step
+by step, which is the question the project exists to answer.
+
+The viewer also answers *"has this exact call happened before?"* — `req_hash` is the
+identity of a call, so every other run that made it is one query away.
+
+It reads through the server's `/v1/*` routes rather than the filesystem, so it works the
+same whether those are backed by Postgres or by a directory. Read-only by design.
 
 ## How recordings are keyed
 
@@ -158,7 +330,7 @@ everything else:
 | renamed tool-call ids | changed tool schema or sampling params |
 | unicode written a different way | changed system prompt |
 
-Too strict and every fork misses; too loose and you replay a stale answer to a different
+Too strict and every replay misses; too loose and you replay a stale answer to a different
 question — which is worse, because it looks like a result. Every rule in that table is
 pinned by a test.
 
@@ -188,7 +360,7 @@ whatever your agent saw, so treat it as a production data store, not as test fix
 
 ## Runs, steps and cassettes
 
-Three record types and four ids. Every command after `record` is phrased in them.
+Three record types and four ids. Everything downstream is phrased in them.
 
 | id | names | comes from |
 |---|---|---|
@@ -199,7 +371,7 @@ Three record types and four ids. Every command after `record` is phrased in them
 
 **A run** is one execution. `run_id` is a ULID — a millisecond timestamp followed by
 randomness — so sorting run ids alphabetically sorts them by time. That is why `listRuns`
-is a plain `.sort()` and why `record` can tell which run it just created.
+is a plain `.sort()`, and why the newest run is the last one written.
 
 **A step** is one boundary crossing: a model call, a tool call, a clock read. Small,
 ordered, append-only. It records *that something happened* — where, how long, in what
@@ -231,13 +403,13 @@ at 500 runs that is 1000 steps and 501 cassettes.
 | `run_id = 01M1XSBGN8…` | 2 steps — that run has several |
 | both | 1 step |
 
-A generated `step_id` would answer no question those two don't, and it could not express
-`rewind fork <run_id> --at 7` — "run 1, step 7" *is* the pair.
+A generated `step_id` would answer no question those two don't: "run 1, step 7" *is* the
+pair, and that is how the viewer addresses a step you click.
 
 `seq` counts **calls, not nodes**. A ReAct loop is one node that calls the model, calls a
 tool, then calls the model again — one `node` value across six steps — while a node doing
-only arithmetic produces none. Hence `--at 7` rather than `--at plan`, which could not say
-which of the three.
+only arithmetic produces none. So a step is addressed by its number rather than by its
+node name, which could not say which of the three.
 
 ### Why `cassette_ref` exists when replay resolves by hash
 
@@ -250,19 +422,19 @@ that by reading JSONL. Without it you would re-execute all 500 agents to discove
 files they touched, because the requests that produced those hashes live inside the very
 cassettes you are deciding about.
 
-It is also where a substitution gets recorded once fork and structural matching exist:
-`req_hash: abc…` with `cassette_ref: def…` and `match_tier: structural` says this call
-matched nothing on disk but a near-match was accepted — precisely the thing a trace must
-never hide.
+It is also where a substitution would be recorded if a looser match tier is ever accepted:
+`req_hash: abc…` with `cassette_ref: def…` says this call matched nothing on disk but a
+near-match was used — precisely the thing a trace must never hide.
 
 ## Packages
 
 ```
 packages/core/     Schema, canonicalization, hashing. No I/O, no network, no filesystem.
 packages/sdk-js/   withRewind, recorder, redactor, cassette store, config, env handshake.
-packages/cli/      rewind record | show
-examples/deep-research-agent/   The reference workload. `start` runs one model,
-                                `start:multi` adds a cheap router in front of it.
+packages/server/   The ingest API, Postgres index, and content-addressed blob stores.
+packages/ui/       The viewer. React, reads /v1/* and nothing else.
+examples/deep-research-agent/   The reference workload — see its own README.
+                                `start` runs one model, `start:multi` adds a router.
 ```
 
 Dependencies point one way, into `core`. Nothing imports upward. `sdk-js` is the only code
@@ -276,8 +448,8 @@ serialization bug is caught, counted, and logged at most once a minute — your 
 running. The run is then marked `partial`, and a partial run is never a replay source. The
 caller cannot override that.
 
-**Match tier is always reported.** Every step carries the tier it resolved at, and `show`
-always prints the column. A run that resolved 96% exact is evidence; one that resolved 40%
+**Match tier is always reported.** Every step carries the tier it resolved at, and the
+viewer always shows it. A run that resolved 96% exact is evidence; one that resolved 40%
 by fuzzy match is a hypothesis. The code must never let those two look alike.
 
 ## Develop
@@ -285,7 +457,9 @@ by fuzzy match is a hypothesis. The code must never let those two look alike.
 ```bash
 pnpm install
 pnpm build
-pnpm test        # 76 tests
+pnpm test              # 109 unit tests
+pnpm test:determinism  # 20/20 corpus runs replay identically, 0 network
+pnpm test:redaction    # no PII survives a record → store round trip
 ```
 
 The tests are load-bearing here rather than decorative, because this project's failure
@@ -299,26 +473,6 @@ Never change canonicalization without bumping `HASH_VERSION` and regenerating th
 ```bash
 UPDATE_GOLDENS=1 node --test packages/core/test/hash.test.ts   # then review the diff
 ```
-
-## Next
-
-**M1** — `ReplayModel`, `ReplayToolNode`, virtual clock, seeded RNG, deterministic
-scheduler. `rewind replay <run_id>` reproduces a run's final-state hash with the network
-blocked. That milestone is the one that proves the thesis; everything after it is leverage.
-
-Everything deliberately skipped along the way — the clock and RNG shims, the batching
-emitter, Postgres, `rewind doctor` — is logged with the trigger
-that should pull it forward.
-
-**M6 — the viewer.** `rewind show` is a table in a terminal; the same recordings deserve a
-screen. A web UI to browse your runs, filter them by status, node or tag, open one and walk
-its timeline, and read each step's request and response side by side — trace browsing in
-the shape LangSmith taught everyone to expect, over cassettes already sitting on your disk.
-The sweep view lands alongside it: two runs, one deliberate change, diffed step by step.
-
-It reads through the server API rather than the filesystem, so it arrives after the server
-does. And it stays a viewer over *your recordings* — Rewind is not becoming an
-observability vendor, and it exports to LangSmith rather than replacing it.
 
 ## License
 

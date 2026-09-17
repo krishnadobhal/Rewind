@@ -9,5 +9,8 @@ CONTRIBUTING.md
 PROJECT.md
 READMEMAIN.md
 
-.rewind
-.rewind-broken
+graphify-out
+bench
+
+.env
+.env.local

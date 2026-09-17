@@ -1,0 +1,74 @@
+.root { display: flex; flex-direction: column; min-height: 0; }
+
+.label {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+
+.pre {
+  margin: 0;
+  padding: 12px 14px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: var(--fs-code);
+  line-height: 1.65;
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+.branch { display: inline; }
+.children { display: block; padding-left: 15px; border-left: 1px solid var(--line); margin-left: 4px; }
+.line { display: block; }
+
+/* Hue, not brightness, carries the type — readable at 12.5px on a dark ground. */
+.key { color: #9ecbff; }
+.str { color: #b5e8a0; }
+.num { color: #ffcb8b; }
+.bool { color: #d3a7ff; }
+.null { color: var(--ink-faint); font-style: italic; }
+.punct { color: var(--ink-faint); }
+
+.redacted {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-radius: 3px;
+  padding: 0 3px;
+  font-style: normal;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: -13px;
+  padding: 0;
+  vertical-align: baseline;
+  color: var(--ink-faint);
+  transition: color 0.12s var(--ease);
+}
+.toggle:hover { color: var(--ink); }
+.toggle svg { transition: transform 0.16s var(--ease); }
+.toggle[data-open] svg { transform: rotate(90deg); }
+
+.summary {
+  margin: 0 2px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--raised);
+  color: var(--ink-faint);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  transition: background 0.12s var(--ease), color 0.12s var(--ease);
+}
+.summary:hover { background: var(--hover); color: var(--ink-dim); }
