@@ -1,6 +1,6 @@
 {
   "name": "@krishnadobhal/rewind-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ingest API, Postgres index and content-addressed blob stores for Rewind recordings.",
   "license": "Apache-2.0",
   "author": "Krishna Dobhal",

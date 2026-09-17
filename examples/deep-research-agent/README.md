@@ -190,9 +190,8 @@ const rw = await withRewind({ model, tools });
 // rw.model and rw.tools are instrumented; hand them to your graph.
 ```
 
-Your own ingest server, with the viewer mounted in it, is six lines. This is the
-[bull-board](https://github.com/felixmosh/bull-board) arrangement: the UI package ships
-built assets, and the server you already run mounts them.
+Your own ingest server, with the viewer mounted in it, is six lines. The UI package ships
+built assets and nothing else, so the server you already run serves them too.
 
 ```ts
 import { createIngestServer } from '@krishnadobhal/rewind-server/ingest';

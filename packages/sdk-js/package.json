@@ -1,6 +1,6 @@
 {
   "name": "@krishnadobhal/rewind-sdk-js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Record every boundary an LLM agent crosses: withRewind, the recorder, the redactor, and the stores.",
   "license": "Apache-2.0",
   "author": "Krishna Dobhal",
