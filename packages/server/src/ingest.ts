@@ -1,4 +1,6 @@
+import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { extname, join, normalize, sep } from 'node:path';
 import type { Cassette, Run, Step } from '@krishnadobhal/rewind-core/schema';
 import type { AsyncStore, BatchWrite } from '@krishnadobhal/rewind-sdk-js/emitter';
 import type { Trace } from '@krishnadobhal/rewind-sdk-js/store';
@@ -33,7 +35,54 @@ export type IngestOptions = {
   token?: string;
   /** Refuse a body larger than this, so one client cannot exhaust memory. */
   maxBodyBytes?: number;
+  /**
+   * Directory of built viewer assets to serve alongside the API.
+   *
+   * Pass `staticPath` from `@krishnadobhal/rewind-ui`. Serving the viewer from the
+   * same origin as `/v1` is what spares it a proxy and CORS entirely.
+   */
+  ui?: string;
 };
+
+const MEDIA: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
+  '.ico': 'image/x-icon',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.map': 'application/json; charset=utf-8',
+};
+
+/**
+ * Serves one asset, or the page itself when the path names no file.
+ *
+ * The viewer is one page holding its own state, so an unknown path is a deep link
+ * rather than a mistake. Returns false only when there is nothing to serve at all.
+ */
+async function asset(root: string, urlPath: string, response: ServerResponse): Promise<boolean> {
+  const base = root.endsWith(sep) ? root : root + sep;
+  const wanted = join(base, normalize(urlPath === '/' ? 'index.html' : decodeURIComponent(urlPath)));
+  // normalize() plus this prefix test is what stops ../ climbing out of the bundle.
+  const file = wanted.startsWith(base) ? wanted : join(base, 'index.html');
+
+  for (const candidate of [file, join(base, 'index.html')]) {
+    try {
+      const body = await readFile(candidate);
+      response.writeHead(200, { 'content-type': MEDIA[extname(candidate)] ?? 'application/octet-stream' });
+      response.end(body);
+      return true;
+    } catch {
+      // Fall through to index.html, then give up.
+    }
+  }
+  return false;
+}
 
 /** Reads a JSON body, refusing anything oversized. */
 async function readJson(request: IncomingMessage, limit: number): Promise<unknown> {
@@ -93,7 +142,7 @@ async function apply(store: AsyncStore, writes: BatchWrite[]): Promise<void> {
 
 /** Builds the ingest server over a store. */
 export function createIngestServer(options: IngestOptions) {
-  const { store, token, maxBodyBytes = 8 * 1024 * 1024 } = options;
+  const { store, token, maxBodyBytes = 8 * 1024 * 1024, ui } = options;
 
   const json = (response: ServerResponse, status: number, body: unknown): void => {
     response.writeHead(status, { 'content-type': 'application/json' });
@@ -148,6 +197,11 @@ export function createIngestServer(options: IngestOptions) {
         if (request.method === 'GET' && cassette) {
           const found = await store.readCassette(cassette[1]!);
           return found === null ? json(response, 404, { error: 'not found' }) : json(response, 200, found);
+        }
+
+        // The API owns /v1 and /health; everything else is the viewer's, when mounted.
+        if (ui !== undefined && request.method === 'GET' && !path.startsWith('/v1')) {
+          if (await asset(ui, path, response)) return;
         }
 
         json(response, 404, { error: 'no such route' });

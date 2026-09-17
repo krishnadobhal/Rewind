@@ -13,4 +13,5 @@ graphify-out
 bench
 
 .env
-.env.local
+.env.local.rewind/
+.rewind-blobs/

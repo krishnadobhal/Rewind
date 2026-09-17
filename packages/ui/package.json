@@ -1,26 +1,52 @@
 {
-  "name": "@rewind/ui",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@krishnadobhal/rewind-ui",
+  "version": "0.1.0",
+  "description": "Built trace viewer for Rewind — static assets to mount into an ingest server.",
+  "license": "Apache-2.0",
+  "author": "Krishna Dobhal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krishnadobhal/Rewind.git",
+    "directory": "packages/ui"
+  },
+  "homepage": "https://github.com/krishnadobhal/Rewind#readme",
+  "bugs": "https://github.com/krishnadobhal/Rewind/issues",
+  "keywords": [
+    "rewind",
+    "viewer",
+    "ui",
+    "agents",
+    "traces"
+  ],
   "type": "module",
+  "files": [
+    "dist",
+    "static.js",
+    "static.d.ts"
+  ],
+  "exports": {
+    ".": "./static.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {
+  "devDependencies": {
     "@fontsource-variable/inter": "^5.2.0",
     "@fontsource-variable/jetbrains-mono": "^5.2.0",
-    "lucide-react": "^0.544.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
-  },
-  "devDependencies": {
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "lucide-react": "^0.544.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "typescript": "7.0.2",
     "vite": "^8.3.0"
-  }
+  },
+  "types": "./static.d.ts"
 }

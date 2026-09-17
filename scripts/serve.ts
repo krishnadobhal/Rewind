@@ -4,10 +4,14 @@
  *   pnpm serve                 # a local directory, zero configuration
  *   pnpm serve   (with .env)   # Postgres, and S3 if S3_ENDPOINT is set
  *
+ * The viewer is mounted here rather than run beside it, so it is served from the same
+ * origin as the API it reads — no proxy, no CORS, one process, one port.
+ *
  * This is the process an operator runs. It holds the database credentials and the
  * 4 MB AWS SDK so the agent does not have to — which is the whole reason the HTTP
  * hop exists.
  */
+import { existsSync } from 'node:fs';
 import { S3Client } from '@aws-sdk/client-s3';
 import pg from 'pg';
 import { fileBlobs, type BlobStore } from '@krishnadobhal/rewind-server/blobs';
@@ -16,6 +20,7 @@ import { createIngestServer, type IngestStore } from '@krishnadobhal/rewind-serv
 import { migrate, pgStore, type Sql } from '@krishnadobhal/rewind-server/pg';
 import { s3Blobs } from '@krishnadobhal/rewind-server/s3';
 import { loadEnvFile } from '@krishnadobhal/rewind-sdk-js/env';
+import { staticPath } from '@krishnadobhal/rewind-ui';
 
 loadEnvFile();
 
@@ -90,10 +95,13 @@ async function openStore(): Promise<{ store: IngestStore; where: string; close: 
 }
 
 const { store, where, close } = await openStore();
-const server = createIngestServer({ store, token });
+// The built viewer, when it has been built: a missing dist/ only costs the UI.
+const ui = existsSync(staticPath) ? staticPath : undefined;
+const server = createIngestServer({ store, token, ui });
 
 server.listen(port, () => {
   console.log(`rewind ingest  http://localhost:${port}  ${where}${token ? '  · token required' : ''}`);
+  console.log(ui === undefined ? 'viewer         not built — run pnpm -F @krishnadobhal/rewind-ui build' : `viewer         http://localhost:${port}`);
 });
 
 // Close the pool on Ctrl-C so a restart does not leak connections against a pooler.
