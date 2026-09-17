@@ -1,11 +1,34 @@
 {
   "name": "@rewind/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Content-addressed request hashing and the Run/Step/Cassette schema for Rewind.",
+  "license": "Apache-2.0",
+  "author": "Krishna Dobhal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krishnadobhal/Rewind.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/krishnadobhal/Rewind#readme",
+  "bugs": "https://github.com/krishnadobhal/Rewind/issues",
+  "keywords": [
+    "rewind",
+    "hashing",
+    "canonicalization",
+    "jcs",
+    "agents"
+  ],
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "exports": {
     "./schema": "./dist/types/schema.js",
     "./request": "./dist/types/request.js",
     "./hash": "./dist/hash.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "canonicalize": "^2.1.0"

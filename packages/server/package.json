@@ -1,15 +1,37 @@
 {
   "name": "@rewind/server",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Ingest API, Postgres index and content-addressed blob stores for Rewind recordings.",
+  "license": "Apache-2.0",
+  "author": "Krishna Dobhal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krishnadobhal/Rewind.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/krishnadobhal/Rewind#readme",
+  "bugs": "https://github.com/krishnadobhal/Rewind/issues",
+  "keywords": [
+    "rewind",
+    "ingest",
+    "postgres",
+    "s3",
+    "agents"
+  ],
   "type": "module",
+  "files": [
+    "dist",
+    "migrations"
+  ],
   "exports": {
     "./pg": "./dist/pg.js",
     "./blobs": "./dist/blobs.js",
-    "./migrate": "./dist/migrate.js",
     "./s3": "./dist/s3.js",
     "./ingest": "./dist/ingest.js",
     "./files": "./dist/files.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",

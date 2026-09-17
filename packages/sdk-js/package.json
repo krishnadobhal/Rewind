@@ -1,7 +1,28 @@
 {
   "name": "@rewind/sdk-js",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Record every boundary an LLM agent crosses: withRewind, the recorder, the redactor, and the stores.",
+  "license": "Apache-2.0",
+  "author": "Krishna Dobhal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krishnadobhal/Rewind.git",
+    "directory": "packages/sdk-js"
+  },
+  "homepage": "https://github.com/krishnadobhal/Rewind#readme",
+  "bugs": "https://github.com/krishnadobhal/Rewind/issues",
+  "keywords": [
+    "rewind",
+    "langgraph",
+    "langchain",
+    "agents",
+    "record",
+    "observability"
+  ],
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "exports": {
     "./recorder": "./dist/recorder.js",
     "./redact": "./dist/redact.js",
@@ -12,6 +33,9 @@
     "./middleware": "./dist/middleware.js",
     "./emitter": "./dist/emitter.js",
     "./http": "./dist/http.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@rewind/core": "workspace:*"
