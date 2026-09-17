@@ -26,12 +26,15 @@ pnpm -F deep-research-agent start:multi    # a cheap router in front of the plan
 
 No API key, no network, no services. It prints the conversation and exits.
 
-With Rewind switched on, the same file records and replays:
+With Rewind switched on, the same file records every boundary it crosses:
 
 ```bash
 REWIND_ENABLED=1 pnpm -F deep-research-agent start
-REWIND_REPLAY=<run_id> pnpm -F deep-research-agent start   # exits 2 if it diverged
+cat .rewind/runs/*/steps.jsonl | jq '{seq,node,kind,req_hash}'
 ```
+
+One environment variable, and `src/` is unchanged. Unset it and `withRewind` hands back
+the original model and tools, so an uninstrumented run costs nothing.
 
 ## Why the model is scripted
 
@@ -102,38 +105,43 @@ this reason.
 | `src/main.ts` | entry point; picks the models, runs the graph, prints the transcript |
 | `test/agent.test.ts` | records, replays, and asserts the trace |
 
-`src/graph.ts` is also imported by `scripts/build-corpus.ts` and by the determinism
-suite, so a change to the graph shape changes `bench/corpus` and the gate along with it.
+`src/graph.ts` is exported, so `test/` and the repo's scripts import the same graph the
+example runs — a change to the shape changes every gate that reads it.
 
 ## Recording it to a server
 
-**The example runs with no `.env` at all.** It has no keys and reaches nothing — that
-is the whole reason it can be the reference workload, and why a stranger can clone the
-repo and run the gates.
+**The example runs with no `.env` at all.** It has no keys and reaches nothing — that is
+the whole reason it can be the reference workload, and why a stranger can clone the repo
+and run every gate.
 
-There is a `.env.example` here for the one case where you would want one — swapping
-`ScriptedChatModel` for a real provider in `src/main.ts`:
+It will read one if you put it here, though, and there is a `.env.example` for that:
 
 ```bash
-cp .env.example .env    # then set ANTHROPIC_API_KEY
+cp .env.example .env
 ```
 
-The `start` scripts load it with `--env-file-if-exists`, not `--env-file` — absent is a
-valid state, and the example must keep running without one. `.env` is gitignored at
-every level, so a key put here cannot be committed.
+**The SDK loads it, not the start script.** `recorderFromEnv()` calls `loadEnvFile()`
+*before* it checks `REWIND_ENABLED`, so a value in this file can switch recording on
+without touching the shell — and a missing file is the normal case rather than an error,
+which is what keeps the example runnable with nothing configured. `REWIND_ENV_FILE`
+points somewhere else, or `0` opts out. `.env` is gitignored at every level, so a key
+put here cannot be committed.
 
 **`REWIND_SERVER` and `REWIND_TOKEN` can go in this file**, since the agent is the process
-that reads them — but a server URL and a bearer token belong to a deployment rather than to
-a checked-out example, so the shell that starts the agent is the better place.
+that reads them — though a server URL and a bearer token belong to a deployment more than
+to a checked-out example, so the shell is usually the better home.
 
-The database credentials are not these. Those belong to the *server*, a separate process
-that holds them so your agent does not have to. From the repo root:
+Database credentials are not these. Those belong to the *server*, a separate process that
+holds them so your agent does not have to. From the repo root:
 
 ```bash
 cp .env.example .env          # then fill in DATABASE_URL and, if using S3, the S3_* keys
 docker compose up -d minio    # only if you want blobs in a bucket rather than on disk
 pnpm serve                    # applies the migration on boot
 ```
+
+`pnpm serve` serves the viewer too, on the same port — the ingest API owns `/v1`, the
+viewer gets everything else. Open <http://localhost:4000> once a run has landed.
 
 Then point the agent at it. The example is unchanged:
 
@@ -148,6 +156,43 @@ is none the wiser — which is the same property that lets `withRewind` be a no-
 nobody is recording.
 
 The full variable table is in the root [README](../../README.md#recording-to-postgres-and-s3).
+
+## The same thing outside this repo
+
+In here the example links to the workspace. From anywhere else, the four packages are on
+npm and the code is identical:
+
+```bash
+pnpm add @krishnadobhal/rewind-sdk-js      # instrument an agent
+pnpm add @krishnadobhal/rewind-server      # ...and self-host the store
+pnpm add @krishnadobhal/rewind-ui          # ...and the viewer's built assets
+```
+
+`@krishnadobhal/rewind-core` arrives as a dependency of the other two; you rarely import
+it directly.
+
+```ts
+import { withRewind } from '@krishnadobhal/rewind-sdk-js/middleware';
+
+const rw = await withRewind({ model, tools });
+// rw.model and rw.tools are instrumented; hand them to your graph.
+```
+
+Your own ingest server, with the viewer mounted in it, is six lines. This is the
+[bull-board](https://github.com/felixmosh/bull-board) arrangement: the UI package ships
+built assets, and the server you already run mounts them.
+
+```ts
+import { createIngestServer } from '@krishnadobhal/rewind-server/ingest';
+import { fileIngestStore } from '@krishnadobhal/rewind-server/files';
+import { staticPath } from '@krishnadobhal/rewind-ui';
+
+createIngestServer({ store: fileIngestStore('.rewind'), ui: staticPath }).listen(4000);
+```
+
+Same origin for the page and the API it reads, so there is no proxy and no CORS. Swap
+`fileIngestStore` for `pgStore` when a directory stops being enough — the routes and the
+viewer do not change.
 
 ## What it deliberately does not exercise
 
