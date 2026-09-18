@@ -16,7 +16,6 @@ import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { z } from 'zod';
 import { withRewind } from '@rewind/sdk-js/middleware';
 import type { Recorder } from '@rewind/sdk-js/recorder';
-import type { Replayer } from '@rewind/sdk-js/replay';
 import { ScriptedChatModel } from './model.ts';
 
 /** A canned search tool; a real one would reach the network. */
@@ -62,14 +61,13 @@ export type Binding = {
   tools: StructuredToolInterface[];
   router?: Model;
   recorder?: Recorder | null;
-  replayer?: Replayer | null;
 };
 
 /**
  * Instruments the models and tools, then wires them into a compiled graph.
  *
  * `withRewind` lives here, at the build step, because this is the one place that
- * holds every boundary object at once. Outside `rewind record` it hands them all
+ * holds every boundary object at once. Unrecorded it hands them all
  * back untouched, so this costs nothing in production.
  */
 export async function buildGraph(binding: Binding) {
@@ -77,7 +75,6 @@ export async function buildGraph(binding: Binding) {
     model: binding.model as { invoke: never },
     tools: binding.tools,
     recorder: binding.recorder,
-    replayer: binding.replayer,
     revive: reviveLangChain,
   });
   const tools = rw.tools;
@@ -101,7 +98,7 @@ export async function buildGraph(binding: Binding) {
 
   // The recorder comes back with the graph — the caller needs it to close the run.
   // One model: straight into planning.
-  if (router === undefined) return { graph: research.addEdge(START, 'plan').compile(), recorder: rw.recorder, replayer: rw.replayer };
+  if (router === undefined) return { graph: research.addEdge(START, 'plan').compile(), recorder: rw.recorder };
 
   // Two models: a cheap router decides whether the expensive one runs at all.
   const graph = research
@@ -109,7 +106,7 @@ export async function buildGraph(binding: Binding) {
     .addEdge(START, 'route')
     .addConditionalEdges('route', (state) => (wantsResearch(state.messages) ? 'plan' : END), ['plan', END])
     .compile();
-  return { graph, recorder: rw.recorder, replayer: rw.replayer };
+  return { graph, recorder: rw.recorder };
 }
 
 /**

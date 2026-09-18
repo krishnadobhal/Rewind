@@ -7,8 +7,7 @@
  */
 import type { RewindRequest } from '@rewind/core/request';
 import type { StepKind } from '@rewind/core/schema';
-import { recorderFromEnv, replayerFromEnv } from './env.ts';
-import { MissError, type Replayer } from './replay.ts';
+import { recorderFromEnv } from './env.ts';
 import type { Recorder } from './recorder.ts';
 
 /** Anything with an invoke method — a model, a tool, a runnable. */
@@ -20,20 +19,17 @@ type AnyFn = (this: unknown, ...args: unknown[]) => unknown;
 /** Methods returning a new runnable that must stay wrapped. */
 const REWRAPPING = new Set(['bindTools', 'bind', 'withConfig', 'withRetry']);
 
-/** What this process does to each boundary. At most one of the two is set. */
-type Session = { recorder: Recorder | null; replayer: Replayer | null; revive: (response: unknown) => unknown };
+/** What this process does to each boundary. */
+type Session = { recorder: Recorder | null; revive: (response: unknown) => unknown };
 
 export type WithRewindOptions<M, T> = {
   model?: M;
   tools?: T[];
-  /** Supplied by tests; otherwise from the `rewind record` env handshake. */
+  /** Supplied by tests; otherwise from REWIND_ENABLED and friends. */
   recorder?: Recorder | null;
-  /** Supplied by tests; otherwise from the `rewind replay` env handshake. */
-  replayer?: Replayer | null;
   /**
    * Turns a recorded response back into the object the graph expects.
-   * A cassette holds JSON; LangChain wants an `AIMessage` back, and raw JSON would
-   * change the next request so every later step misses. Recording ignores this.
+   * Kept for the reader that hands cassettes back to a graph; recording ignores it.
    */
   revive?: (response: unknown) => unknown;
 };
@@ -42,28 +38,24 @@ export type Rewind<M, T> = {
   model: M;
   tools: T[];
   recorder: Recorder | null;
-  /** Non-null when this process is replaying a recorded run. */
-  replayer: Replayer | null;
   /** Wraps one more model or tool — `model`/`tools` are sugar over this. */
   wrap: <X extends Invokable>(target: X) => X;
 };
 
-/** Wraps a model and tools so every call is recorded, or replayed. */
+/** Wraps a model and tools so every call is recorded. */
 export async function withRewind<M extends Invokable, T extends Invokable>(
   options: WithRewindOptions<M, T> = {},
 ): Promise<Rewind<M, T>> {
-  // Replay first: a process replaying a run is not also recording one.
-  const replayer = options.replayer ?? (await replayerFromEnv());
-  const recorder = replayer ? null : options.recorder ?? (await recorderFromEnv());
+  const recorder = options.recorder ?? (await recorderFromEnv());
   const tools = options.tools ?? [];
   const model = options.model as M;
-  const session: Session = { recorder, replayer, revive: options.revive ?? ((r) => r) };
-  // Neither: hand back the originals, so an un-instrumented run costs nothing.
-  if (recorder === null && replayer === null) {
-    return { model, tools, recorder: null, replayer: null, wrap: (target) => target };
+  const session: Session = { recorder, revive: options.revive ?? ((r) => r) };
+  // Not recording: hand back the originals, so an un-instrumented run costs nothing.
+  if (recorder === null) {
+    return { model, tools, recorder: null, wrap: (target) => target };
   }
   const wrap = <X extends Invokable>(target: X): X => wrapAny(target, session);
-  return { model: model && wrap(model), tools: tools.map(wrap), recorder, replayer, wrap };
+  return { model: model && wrap(model), tools: tools.map(wrap), recorder, wrap };
 }
 
 /** Dispatches to the model or tool wrapper by shape. */
@@ -118,7 +110,7 @@ function wrapTool<T extends Invokable>(tool: T, session: Session): T {
   }) as T;
 }
 
-/** Answers a boundary crossing: from a cassette, or from the world. */
+/** Answers a boundary crossing, and records what happened. */
 async function observe(
   session: Session,
   kind: StepKind,
@@ -127,18 +119,7 @@ async function observe(
   call: () => unknown,
 ): Promise<unknown> {
   const node = nodeName(config);
-  const { recorder, replayer } = session;
-
-  if (replayer !== null) {
-    const hit = replayer.resolve(node, kind, request());
-    if (hit.hit) return session.revive(hit.response); // never touches the network (I6)
-    // A miss is a branch, not a replay (I5): strict fails by name, live falls through.
-    if (replayer.onMiss === 'strict') {
-      const step = replayer.steps[replayer.steps.length - 1]!;
-      throw new MissError(node, step.seq, step.req_hash);
-    }
-    return call();
-  }
+  const { recorder } = session;
 
   const started = Date.now(); // real clock; the virtual one arrives with B3
   try {

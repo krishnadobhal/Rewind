@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import { HumanMessage } from '@langchain/core/messages';
 import { stateHash } from '@rewind/core/hash';
 import { Recorder } from '@rewind/sdk-js/recorder';
-import { Replayer } from '@rewind/sdk-js/replay';
 import { fileStore, readCassette, readTrace, type Trace } from '@rewind/sdk-js/store';
 import { buildGraph, routerScript, script, webSearch } from '../src/graph.ts';
 import { ScriptedChatModel } from '../src/model.ts';
@@ -87,37 +86,4 @@ test('building the graph is what instruments it — the caller cannot forget', a
   const { trace } = await run();
   assert.ok(trace.steps.some((s) => s.kind === 'tool'), 'the tool boundary is recorded');
   assert.ok(trace.steps.every((s) => s.match_tier === 'recorded'), 'every step reports its tier (I3)');
-});
-
-test('the reference agent replays byte-identically with no model call', async () => {
-  const { dir, trace, stateHash: recordedHash } = await run();
-
-  // The model is a tripwire: if replay reaches it, the run fails instead of drifting.
-  const replayer = new Replayer({ root: dir, runId: trace.run.run_id, onMiss: 'strict' });
-  const tripwire = new ScriptedChatModel({ responses: [], model: 'scripted-planner-1' });
-  tripwire._generate = async () => { throw new Error('the model was called during replay'); };
-
-  const { graph } = await buildGraph({ model: tripwire, tools: [webSearch], replayer });
-  const state = await graph.invoke({ messages: [new HumanMessage('how do I replay an agent?')] });
-
-  assert.equal(replayer.verdict(stateHash(state)), 'match', 'same final state, no network');
-  assert.equal(recordedHash, stateHash(state));
-  assert.deepEqual(replayer.tiers, { exact: 3, structural: 0, semantic: 0, miss: 0, recorded: 0 });
-  assert.equal(replayer.divergenceSeq, null);
-});
-
-test('a different question misses at the first step and says where', async () => {
-  const { dir, trace } = await run();
-  const replayer = new Replayer({ root: dir, runId: trace.run.run_id, onMiss: 'strict' });
-  const { graph } = await buildGraph({
-    model: new ScriptedChatModel({ responses: script(), model: 'scripted-planner-1' }),
-    tools: [webSearch],
-    replayer,
-  });
-
-  // Not the recorded question, so the first request has a different hash. Replay must
-  // refuse rather than hand back the answer to a question nobody asked.
-  await assert.rejects(() => graph.invoke({ messages: [new HumanMessage('something else entirely?')] }), /no cassette for plan at seq 0/);
-  assert.equal(replayer.divergenceSeq, 0);
-  assert.equal(replayer.tiers.miss, 1);
 });
